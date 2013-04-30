@@ -105,25 +105,29 @@ class Cursor(object):
         sequence of 7-item sequence of:
         (name, type_code, display_size, internal_size, precision, scale, null_ok)
         
+        Notes
+        -----
+        Will return a namedtuple if available
+
         """
         if self._dbptr.table == dbALL or dbINVALID in self._dbptr:
             return None
         description = []
-        dbptr = Dbptr(self._dbptr)
-        dbptr.record = dbNULL
+        dbptr = self._nullptr
         used = []
         for dbptr.field in range(dbptr.query('dbFIELD_COUNT')):
-            # get a bunch of stuff, name, type (check for hybid name?)
+            # Have to construct hybrid table.field name for some views
             name = dbptr.query('dbFIELD_NAME')
             if name in used:
                 name = '.'.join([dbptr.query('dbFIELD_BASE_TABLE'), name])
             used.append(name)
-            type_code = dbptr.query('dbFIELD_TYPE')
-            display_size = dbptr.query('dbFORMAT')
+            # and the rest...
+            type_code     = dbptr.query('dbFIELD_TYPE')
+            display_size  = dbptr.query('dbFORMAT')
             internal_size = dbptr.query('dbFIELD_SIZE')
-            precision = dbptr.query('dbFIELD_FORMAT')
-            scale = dbptr.query('dbFIELD_UNITS')
-            null_ok = dbptr.getv(name)[0]
+            precision     = dbptr.query('dbFIELD_FORMAT')
+            scale         = dbptr.query('dbFIELD_UNITS')
+            null_ok       = dbptr.getv(name)[0]
             dtup = (name, type_code, display_size, internal_size, precision, scale, null_ok)
             if 'collections' in globals() and hasattr(collections, 'namedtuple'):
                 Tuple = collections.namedtuple('Tuple', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
@@ -264,6 +268,8 @@ class Cursor(object):
         """
         if size is None:
             size = self.arraysize
+        if not 0 <= self.rownumber < self.rowcount:
+            raise ProgrammingError("Not a valid record number: "+ str(self.rownumber))
         end = self.rownumber + size
         if end > self.rowcount:
             end = self.rowcount
