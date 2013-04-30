@@ -223,7 +223,7 @@ class Cursor(object):
         
         """
         if not hasattr(self._dbptr, operation):
-            raise Exception("No such command available: " + operation)
+            raise ProgrammingError("No such command available: " + operation)
             
         proc = getattr(self._dbptr, operation)
         if isinstance(params, dict):
@@ -358,9 +358,9 @@ class Connection(object):
     #
     # UNRELIABLE count due to some stuff
     #
-    #def __del__(self):
-    #    if self._dbptr.query('dbDATABASE_COUNT') == 1:
-    #        self.close()
+    def __del__(self):
+        if self._dbptr.query('dbDATABASE_COUNT') == 1:
+            self.close()
 
     def cursor(self, **kwargs):
         """
