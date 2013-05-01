@@ -2,16 +2,19 @@
 # dbapi2 module for Datascope
 #
 import exceptions
+import datetime
 try:
     import collections
 except ImportError:
     pass
 from antelope.datascope import Dbptr, dbALL, dbNULL, dbINVALID
 
+# DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
 threadsafety = 0          # Playing it safe (datascope??)
-paramstyle   = None       # N/A right now, execute uses Dbptr API
+paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
+# DBAPI standard exceptions
 class Error(exceptions.StandardError):
     pass
 
@@ -42,6 +45,16 @@ class DataError(DatabaseError):
 class NotSupportedError(DatabaseError):
     pass
 
+# DBAPI Type Objects
+#--- Not really vital for this mod to function as written right now ---------#
+# WORK IN PROGRESS!!
+Date = datetime.date
+Time = datetime.time
+Timestamp = datetime.datetime
+Binary = buffer
+# ... -----------------------------------------------------------------------#
+
+# DBAPI Classes
 class Cursor(object):
     """
     DBAPI 2.0 compatible cursor type for Datascope
@@ -49,10 +62,11 @@ class Cursor(object):
     Attributes (DBAPI standard)
     ----------
     arraysize   : str of step size for 'fetch'
-    description : sequence of 7-item sequence of DBAPI 'description'
+    description : list of 7-item sequence of DBAPI 'description'
     rowcount    : int of number of rows returned by last operation
     rownumber   : int of current record number
-    
+    connection  : instance of Connection 'parent'
+
     Additional attributes
     ---------------------
     CONVERT_NULL : bool of whether to try and change Nulls to None
@@ -189,6 +203,7 @@ class Cursor(object):
         return row
 
     def close(self):
+        """Close database connection"""
         self._dbptr.close()
 
     def execute(self, operation, params=[]):
@@ -244,7 +259,7 @@ class Cursor(object):
         
     def fetchone(self):
         """
-        Return one row fro current pointer.
+        Return one row from current pointer.
 
         Returns
         -------
@@ -401,16 +416,25 @@ def namedtuple_row(cursor, row):
     """
     A row_factory function for nice fast namedtuple rows
     
-    EXCEPT IT DOESN'T WORK WITH VIEWS due to Datascope 'dot' syntax
+    Notes
+    -----
+    EXCEPT IT DOESN'T WORK WITH VIEWS due to Datascope 'dot' table.field View
+    syntax!!
     
+    To fix this, periods are replaced with underscores, which is better, but
+    for programs that access the fields by named attribute, a little more
+    esoteric...
+
     """
-    Tuple = collections.namedtuple('Row', [d[0] for d in cursor.description])
+    Tuple = collections.namedtuple('Row', [d[0].replace('.','_') for d in cursor.description])
     return Tuple(*row)
 
 def ordereddict_row(cursor, row):
     """
     A row_factory function to make OrderedDict rows from row tuple
     
+    Not as fast, but supports getitem syntax and the 'get' function, and can
+    access duplicate-named fields in views with the dot-syntax names
     """
     # Have to build key/value tuple pairs...
     kv = [(d[0], row[n]) for n, d in enumerate(cursor.description)]
