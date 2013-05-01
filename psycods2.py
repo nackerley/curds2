@@ -47,7 +47,7 @@ class NotSupportedError(DatabaseError):
     pass
 
 # DBAPI Type Objects / Functions
-#--- Not really vital for this mod to function as written right now ---------#
+#----------------------------------------------------------------------------#
 class DBAPITypeObject:
     def __init__(self,*values):
         self.values = values
@@ -66,10 +66,11 @@ NUMBER   = DBAPITypeObject(dbINTEGER,dbREAL)
 DATETIME = DBAPITypeObject(dbTIME,dbYEARDAY)
 ROWID    = DBAPITypeObject(dbDBPTR)
 
-# Specified helper constructors
+Binary    = buffer
+# DBAPI spec  time constructors, prefer obspy.core.utcdatetime.UTCDateTime
+Date      = datetime.date
 Time      = datetime.time
 Timestamp = datetime.datetime
-Binary    = buffer
 
 TimestampFromTicks = Timestamp.fromtimestamp
 
@@ -79,7 +80,7 @@ def DateFromTicks(ticks):
 def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
-# ... -----------------------------------------------------------------------#
+#----------------------------------------------------------------------------#
 
 # DBAPI Classes
 class Cursor(object):
@@ -156,9 +157,13 @@ class Cursor(object):
         """
         if self._dbptr.table == dbALL or dbINVALID in self._dbptr:
             return None
-        description = []
+        if 'collections' in globals() and hasattr(collections, 'namedtuple'):
+            Tuple = collections.namedtuple('Tuple', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
+        else:
+            Tuple = tuple
         dbptr = self._nullptr
         used = []
+        description = []
         for dbptr.field in range(dbptr.query('dbFIELD_COUNT')):
             # Have to construct hybrid table.field name for some views
             name = dbptr.query('dbFIELD_NAME')
@@ -172,10 +177,8 @@ class Cursor(object):
             precision     = dbptr.query('dbFIELD_FORMAT')
             scale         = dbptr.query('dbFIELD_UNITS')
             null_ok       = dbptr.getv(name)[0]
-            dtup = (name, type_code, display_size, internal_size, precision, scale, null_ok)
-            if 'collections' in globals() and hasattr(collections, 'namedtuple'):
-                Tuple = collections.namedtuple('Tuple', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
-                dtup = Tuple(*dtup)
+            
+            dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
             description.append(dtup)
         return description
 
@@ -464,7 +467,25 @@ def ordereddict_row(cursor, row):
     access duplicate-named fields in views with the dot-syntax names
     """
     # Have to build key/value tuple pairs...
-    kv = [(d[0], row[n]) for n, d in enumerate(cursor.description)]
+    kv = [(d.name, row[n]) for n, d in enumerate(cursor.description)]
+    return collections.OrderedDict(kv)
+
+try:
+    from obspy.core.utcdatetime import UTCDateTime
+except ImportError:
+    pass
+
+def utc_orddict_row(cursor, row):
+    """
+    A row_factory function to make OrderedDict rows from row tuple
+   
+    This uses the UTCDateTime class to convert any type object that
+    compares to DATETIME to a utcdatetime object.
+    """
+    #
+    # If CONVERT_NULL is checked have to check for None, too
+    # 
+    kv = [(d.name, d.type_code==DATETIME and row[n]!=None and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
     return collections.OrderedDict(kv)
 #
 #---------------------------------------------------------------------#
