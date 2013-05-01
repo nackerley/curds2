@@ -485,7 +485,7 @@ def utc_orddict_row(cursor, row):
     #
     # If CONVERT_NULL is checked have to check for None, too
     # 
-    kv = [(d.name, d.type_code==dbTIME and row[n]!=None and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
+    kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
     return collections.OrderedDict(kv)
 #
 #---------------------------------------------------------------------#
