@@ -456,7 +456,7 @@ def namedtuple_row(cursor, row):
     esoteric...
 
     """
-    Tuple = collections.namedtuple('Row', [d[0].replace('.','_') for d in cursor.description])
+    Tuple = collections.namedtuple('Row', [d.name.replace('.','_') for d in cursor.description])
     return Tuple(*row)
 
 def ordereddict_row(cursor, row):
