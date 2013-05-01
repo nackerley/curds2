@@ -400,13 +400,17 @@ class Connection(object):
     def close(self):
         self._dbptr.close()
 
-    #
-    # UNRELIABLE count due to some stuff
-    #
-    def __del__(self):
-        if self._dbptr.query('dbDATABASE_COUNT') == 1:
-            self.close()
+    def __enter__(self):
+        """With support"""
+        return self
 
+    def __exit__(self, exc_type, exc_value, traceback):
+        """
+        Close Connection if Exception thrown in a 'with'
+        """
+        if self._dbptr.query('dbDATABASE_COUNT') != 0:
+            self.close()
+    
     def cursor(self, **kwargs):
         """
         Construct a Cursor object from Connection pointer
