@@ -7,7 +7,8 @@ try:
     import collections
 except ImportError:
     pass
-from antelope.datascope import Dbptr, dbALL, dbNULL, dbINVALID
+from antelope.datascope import (Dbptr, dbALL, dbNULL, dbINVALID,
+    dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
 
 # DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
@@ -45,13 +46,39 @@ class DataError(DatabaseError):
 class NotSupportedError(DatabaseError):
     pass
 
-# DBAPI Type Objects
+# DBAPI Type Objects / Functions
 #--- Not really vital for this mod to function as written right now ---------#
-# WORK IN PROGRESS!!
-Date = datetime.date
-Time = datetime.time
+class DBAPITypeObject:
+    def __init__(self,*values):
+        self.values = values
+    
+    def __cmp__(self,other):
+        if other in self.values:
+            return 0
+        if other < self.values:
+            return 1
+        else:
+            return -1
+
+STRING   = DBAPITypeObject(dbSTRING)
+BINARY   = DBAPITypeObject(dbBOOLEAN) # String or Integer? Dump here.
+NUMBER   = DBAPITypeObject(dbINTEGER,dbREAL)
+DATETIME = DBAPITypeObject(dbTIME,dbYEARDAY)
+ROWID    = DBAPITypeObject(dbDBPTR)
+
+# Specified helper constructors
+Time      = datetime.time
 Timestamp = datetime.datetime
-Binary = buffer
+Binary    = buffer
+
+TimestampFromTicks = Timestamp.fromtimestamp
+
+def DateFromTicks(ticks):
+    return Date(TimestampFromTicks(ticks).timetuple()[:3])
+
+def TimeFromTicks(ticks):
+    return Time(TimestampFromTicks(ticks).timetuple()[3:6])
+
 # ... -----------------------------------------------------------------------#
 
 # DBAPI Classes
