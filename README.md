@@ -9,6 +9,18 @@ Summary
 
 The purpose of this module is to abstract processing programs from any specific database backend. See the [PEP 249 -- Python Database API Specification v2.0](http://www.python.org/dev/peps/pep-0249/) for details on the specifications, and the python class, function and method docstrings for details on the implementation.
 
+Customizations
+--------------
+### NULL support
+
+Datascope has no NULL type, each field defines its own value which compares equal to NULL. Therefore, NULLs must be explicitly looked up and converted, at a slight performance overhead. This can be enabled for this module by setting the Cursor attribute `CONVERT_NULL` to `True`. All fields in any rows returned the the `fetch*` methods will contain a python `None` for any NULL value. 
+
+### Factory support
+
+This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has three pre-defined row facotry classes:
+* NamedTupleRow - Rows of python namedtuples with attribute-style access to each item.
+* OrderedDictRow - Rows of python OrderedDict instances.
+* UTCOrdDictRow - Identical to OrderedDictRow, with any field comparing to 'dbTIME' converted to an ObsPy UTCDateTime object.
 
 Contact
 -------
