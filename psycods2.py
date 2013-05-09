@@ -175,7 +175,7 @@ class Cursor(object):
             display_size  = dbptr.query('dbFORMAT')
             internal_size = dbptr.query('dbFIELD_SIZE')
             precision     = dbptr.query('dbFIELD_FORMAT')
-            scale         = dbptr.query('dbFIELD_UNITS')
+            scale         = None
             null_ok       = name not in dbptr.query('dbPRIMARY_KEY')
             
             dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
