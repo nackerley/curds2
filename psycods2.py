@@ -436,17 +436,21 @@ def connect(dsn, perm='r', **kwargs):
     return Connection(dsn, perm=perm, **kwargs)
 
 #--- Utilities -------------------------------------------------------#
-# Row factory functions, based on sqlite3's DBAPI implementation
+# Row factory classes, based on sqlite3's DBAPI implementation
 # They take a 'row' tuple and the Cursor instance and return a row
 # If collections is supported (2.6+ for namedtuple, 2.7+ for OrderedDict)
+#
+# Generic Constructor: RowFactoryClass(cursor, row)
+#
 # Use like this:
-# >>> cursor.row_factory = namedtuple_row
+# >>> cursor.row_factory = NamedTupleRow
 #
 # the fetch* functions will then return nicer named rows
 #
 # TODO: Break out all row_factories to a compiled module for speed?
 #
-def namedtuple_row(cursor, row):
+
+class NamedTupleRow(object):
     """
     A row_factory function for nice fast namedtuple rows
     
@@ -460,10 +464,12 @@ def namedtuple_row(cursor, row):
     esoteric...
 
     """
-    Tuple = collections.namedtuple('Row', [d.name.replace('.','_') for d in cursor.description])
-    return Tuple(*row)
+    def __new__(cls, cursor, row):
+        Tuple = collections.namedtuple('NamedTupleRow', [d.name.replace('.','_') for d in cursor.description])
+        return Tuple(*row)
+        
 
-def ordereddict_row(cursor, row):
+class OrderedDictRow(collections.OrderedDict):
     """
     A row_factory function to make OrderedDict rows from row tuple
     
@@ -471,25 +477,24 @@ def ordereddict_row(cursor, row):
     access duplicate-named fields in views with the dot-syntax names
     """
     # Have to build key/value tuple pairs...
-    kv = [(d.name, row[n]) for n, d in enumerate(cursor.description)]
-    return collections.OrderedDict(kv)
-
+    def __init__(self, cursor, row):
+        super(OrderedDictRow,self).__init__([(d.name, row[n]) for n, d in enumerate(cursor.description)])
+        
 try:
     from obspy.core.utcdatetime import UTCDateTime
 except ImportError:
     pass
 
-def utc_orddict_row(cursor, row):
+class UTCOrdDictRow(collections.OrderedDict):
     """
     A row_factory function to make OrderedDict rows from row tuple
    
     This uses the UTCDateTime class to convert any type object that
     compares to dbTIME to a utcdatetime object.
     """
-    #
-    # If CONVERT_NULL is checked have to check for None, too
-    # 
-    kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
-    return collections.OrderedDict(kv)
+    def __init__(self, cursor, row):
+        kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
+        super(UTCDictRow, self).__init__(kv)
+
 #
 #---------------------------------------------------------------------#
