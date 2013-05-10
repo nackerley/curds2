@@ -494,7 +494,7 @@ class UTCOrdDictRow(collections.OrderedDict):
     """
     def __init__(self, cursor, row):
         kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
-        super(UTCDictRow, self).__init__(kv)
+        super(UTCOrdDictRow, self).__init__(kv)
 
 #
 #---------------------------------------------------------------------#

@@ -17,7 +17,7 @@ Datascope has no NULL type, each field defines its own value which compares equa
 
 ### Factory support
 
-This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has three pre-defined row facotry classes:
+This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has three pre-defined row factory classes:
 * NamedTupleRow - Rows of python namedtuples with attribute-style access to each item.
 * OrderedDictRow - Rows of python OrderedDict instances.
 * UTCOrdDictRow - Identical to OrderedDictRow, with any field comparing to 'dbTIME' converted to an ObsPy UTCDateTime object.
