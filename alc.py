@@ -1,6 +1,5 @@
 import psycods2 as dbapi2
 
-
 #class _generative(object):
 #    """Mark a method as generative."""
 #    def __init__(self, f):
@@ -12,26 +11,44 @@ import psycods2 as dbapi2
 #        self.f(*args, **kwargs)
 #        return self.f
 
-class Origin(object):
-    __tablename__ = 'origin'
-    
-    lat = None
-    lon = None
-    depth = None
-    time = None
+#class Origin(object):
+#    __tablename__ = 'origin'
+#    
+#    lat = None
+#    lon = None
+#    depth = None
+#    time = None
+
+class Url(object):
+    #dburl is similar to a sqlalchemy URL where it can be any object
+    def __init__(self, database=None, driver=None, username=None, password=None, host=None, port=None):
+        self.database = database
+        self.driver = driver
+        self.username = username
+        self.password = password
+        self.host = host
+        self.port = port
 
 class _Session(object):
     """
     Alchemy-style session class for Datascope
+    
+    This is a base class, to be inherited. Attributes must be set by a
+    metaclass constructor-type like 'sessionmaker'
 
+    Attributes
+    ----------
+    engine : Engine instance
+             Must provide a 'connect' method which returns a
+             DBAPI Connection
     """
     
     @classmethod
     def configure(self,**kwargs):
         self.__dict__.update(kwargs)
 
-    def __init__(self):
-        self._connection = self._connection_for_bind(self.engine)
+    def __init__(self, **kwargs):
+        self._connection = self._connection_for_bind(self.engine, **kwargs)
     
     def _connection_for_bind(self, engine, **kwargs):
         return engine.connect(**kwargs)
@@ -44,14 +61,21 @@ class _Session(object):
         rec = cursor.execute('addnull')
         cursor.scroll(rec, "absolute")
         fields = [d[0] for d in cursor.description]
-        cursor.executemany('addv', [(k,v) for k,v in obj.__dict__.iteritems()])
+        cursor.executemany('addv', [(k,v) for k,v in obj.__dict__.iteritems() if k in fields])
 
 class Query(object):
     """
     Alchemy-style query for Datascope
     
+
+    Attributes
+    ----------
+    session : Session instance of Query
+    cursor  : DBAPI cursor instance from a Session Connection
+
     """
     session = None
+    cursor = None
     
     def __init__(self, cls, session=None):
         self.session = session
@@ -64,6 +88,7 @@ class Query(object):
 
     #def __str__(self):
     #    pass 
+    
     def count(self):
         return self.cursor.rowcount
 
@@ -115,17 +140,12 @@ class Query(object):
 
 class Engine(object):
     """
-    dburl is similar to a sqlalchemy URL where it can be any object
-    dburl.database
-    dburl.driver
-    dburl.username
-    dburl.password
-    dburl.host
-    dburl.port
+    Engine which holds interface info for a database Session/Connection
+    
     """
     connect_args = None
     
-    def __init__(self, pool, dialect, url, **kwargs):
+    def __init__(self, pool=None, dialect=None, url=None, **kwargs):
         self.pool = pool
         self.dialect = dialect
         self.url = url
@@ -141,13 +161,26 @@ class Engine(object):
         if kwargs:
             connect_args.update(kwargs)
         return dbapi2.connect(self.url.database, **connect_args)
+
+class sessionmaker(object):
+    """
+    Creates a Session class to spawn sessions from an Engine
+    """
+    # turn bind into a db name and perm?
+    def __new__(self, bind=None, class_=_Session):
+        return type.__new__(type, "Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args})
             
 def create_engine(dburl, **kwargs):
+    """
+    Create a database Engine from a Url object
+
+    Inputs
+    ------
+    dburl : Url instance with 'database' attribute set
+
+    """
     url = dburl
     pool = None
     dialect = None
     return Engine(pool, dialect, url, **kwargs)
 
-def sessionmaker(bind=None, class_=_Session):
-    # turn bind into a db name and perm?
-    return type("Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args})
