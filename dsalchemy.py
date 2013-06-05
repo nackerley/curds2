@@ -135,10 +135,12 @@ class Query(object):
         Join stuff - needs work
         """
         self.cursor.executemany('join', [[t] for t in props])    
+        return self
 
     def outerjoin(self, *props, **kwargs):
         self.cursor.executemany('join', [(t, True) for t in props])    
-        
+        return self
+
     def first(self):
         self.cursor.scroll(0, 'absolute')
         return self.cursor.fetchone()
@@ -207,7 +209,7 @@ class sessionmaker(object):
     """
     # turn bind into a db name and perm?
     def __new__(self, bind=None, class_=_SessionMethods):
-        return type.__new__(type, "Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args)
+        return type.__new__(type, "Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args})
 
 
 def create_engine(dburl, **kwargs):
