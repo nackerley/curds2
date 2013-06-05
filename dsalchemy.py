@@ -1,35 +1,58 @@
-import psycods2 as dbapi2
+#
+# SQLAlchemy-type classes for Datascope
+#
 
-#class _generative(object):
-#    """Mark a method as generative."""
-#    def __init__(self, f):
-#        print f
-#        self.f = f
-##    
-#    def __call__(self, *args, **kwargs):
-#        print args, kwargs
-#        self.f(*args, **kwargs)
-#        return self.f
+class Base(object):
+    """Base class"""
+    def __init__(self, tablename=None):
+        self.__tablename__ = tablename
 
-#class Origin(object):
-#    __tablename__ = 'origin'
-#    
-#    lat = None
-#    lon = None
-#    depth = None
-#    time = None
+
+class Dialect(object):
+    """Stub Dialect to hold a couple names"""
+    pass
+
+
+class Datascope_Psycods2(Dialect):
+    name = 'datascope'
+    driver = 'psycods2'
+    
+    def __init__(self):
+        self.drv = __import__(self.driver)
+        
+    def create_connect_args(self, url):
+        row = getattr(self.drv, 'NamedTupleRow')
+        return {'row_factory' : row, 'CONVERT_NULL' : True}
+
 
 class Url(object):
+    """URL object describing a database"""
     #dburl is similar to a sqlalchemy URL where it can be any object
-    def __init__(self, database=None, driver=None, username=None, password=None, host=None, port=None):
+    _defaults = {
+        'datascope' : 'psycods2'
+    }
+    
+    def __init__(self, database=None, drivername=None, username=None, password=None, host=None, port=None, query=None):
         self.database = database
-        self.driver = driver
+        self.drivername = drivername
         self.username = username
         self.password = password
         self.host = host
         self.port = port
+        self.query = query
+    
+    def get_dialect(self):
+        """Stub"""
+        if '+' in self.drivername:
+            name, driver = self.drivername.split('+')
+        else:
+            name = self.drivername
+            driver = self._defaults[name]
+        clsname = '_'.join([name.capitalize(), driver.capitalize()])
+        return globals()[clsname]()
 
-class _Session(object):
+
+class _SessionMethods(object):
     """
     Alchemy-style session class for Datascope
     
@@ -44,11 +67,15 @@ class _Session(object):
     """
     
     @classmethod
-    def configure(self,**kwargs):
-        self.__dict__.update(kwargs)
+    def configure(cls, **kwargs):
+        cls.__dict__.update(kwargs)
 
     def __init__(self, **kwargs):
-        self._connection = self._connection_for_bind(self.engine, **kwargs)
+        if kwargs:
+            self.configure(**kwargs)
+        if hasattr(self, 'connect_args'):
+            args = self.connect_args
+        self._connection = self._connection_for_bind(self.engine, **args)
     
     def _connection_for_bind(self, engine, **kwargs):
         return engine.connect(**kwargs)
@@ -62,6 +89,7 @@ class _Session(object):
         cursor.scroll(rec, "absolute")
         fields = [d[0] for d in cursor.description]
         cursor.executemany('addv', [(k,v) for k,v in obj.__dict__.iteritems() if k in fields])
+
 
 class Query(object):
     """
@@ -136,7 +164,7 @@ class Query(object):
         'Might be wrong'
         self.cursor.execute('sort', args)
         return self
-    
+
 
 class Engine(object):
     """
@@ -150,10 +178,20 @@ class Engine(object):
         self.dialect = dialect
         self.url = url
         self.engine = self
-        self.connect_args = {}
+        self.connect_args = dialect.create_connect_args(url)
         self.__dict__.update(kwargs)
     
     def connect(self, **kwargs):
+        """
+        Return a Connection to the database of this Engine
+
+        Notes
+        -----
+        Uses engine Dialect, pass kwargs to Connection constructor
+
+        """
+        # fix this with a Dialect object later...
+        dbapi2 = __import__(self.dialect.driver)
         if self.connect_args:
             connect_args = self.connect_args
         else:
@@ -162,14 +200,16 @@ class Engine(object):
             connect_args.update(kwargs)
         return dbapi2.connect(self.url.database, **connect_args)
 
+
 class sessionmaker(object):
     """
     Creates a Session class to spawn sessions from an Engine
     """
     # turn bind into a db name and perm?
-    def __new__(self, bind=None, class_=_Session):
-        return type.__new__(type, "Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args})
-            
+    def __new__(self, bind=None, class_=_SessionMethods):
+        return type.__new__(type, "Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args)
+
+
 def create_engine(dburl, **kwargs):
     """
     Create a database Engine from a Url object
@@ -179,8 +219,14 @@ def create_engine(dburl, **kwargs):
     dburl : Url instance with 'database' attribute set
 
     """
+    # set from URL
     url = dburl
-    pool = None
+    # Stubs for now - typically build pool/dialect from url
+    pool    = None
     dialect = None
+
+    if dialect is None:
+        dialect = url.get_dialect()
     return Engine(pool, dialect, url, **kwargs)
+
 

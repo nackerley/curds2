@@ -129,7 +129,7 @@ class Cursor(object):
     connection = None       # Not Implemented Yet
     
     # CUSTOM
-    CONVERT_NULL = False    # Convert NULL values to python None
+    CONVERT_NULL = None    # Convert NULL values to python None
     row_factory = None      # Use this to build rows (default is tuple)
 
     @property
@@ -212,6 +212,9 @@ class Cursor(object):
         # inherit row_factory from Connection if not set on creation
         if self.row_factory is None and self.connection:
             self.row_factory = self.connection.row_factory
+        if self.CONVERT_NULL is None and self.connection is not None:
+            self.CONVERT_NULL = self.connection.CONVERT_NULL
+
         # pass anything else to dblookup
         self._dbptr = self._dbptr.lookup(**kwargs)
 
@@ -381,6 +384,7 @@ class Connection(object):
     _dbptr = None
 
     row_factory = None
+    CONVERT_NULL = False
 
     def __init__(self, database, perm='r', **kwargs):
         """
