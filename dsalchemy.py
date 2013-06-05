@@ -2,18 +2,45 @@
 # SQLAlchemy-type classes for Datascope
 #
 
+#
+# HIGHLY EXPERIMENTAL
+# This is a hacktacular quickie attempt at stubbing and placeholding
+# various classes so one can use a Datascope database with the same
+# syntax as an SQL one, using SQLAlchemy-style.
+#
+# Theoretically, the only difference would be the URL:
+#
+# >>> eng = create_engine('datascope:////path/to/my/database')
+#
+# ...or something similar
+#
+# These are in no way complete, and bypass much of the connection and
+# translation layer issues, for better or worse, due to the lack of
+# multithreading connections and two-phase support for out-of-the-box
+# Datascope stuff available in the basic pointer API
+#
+
 class Base(object):
-    """Base class"""
+    """
+    Base class
+    
+    Not Implemented, could be done as a metaclass call based on schema?
+
+    """
     def __init__(self, tablename=None):
         self.__tablename__ = tablename
 
 
 class Dialect(object):
-    """Stub Dialect to hold a couple names"""
+    """Stub Dialect"""
     pass
 
 
 class Datascope_Psycods2(Dialect):
+    """
+    Dialect for Datascope using the DBAPI2.0
+    """
+    
     name = 'datascope'
     driver = 'psycods2'
     
@@ -27,19 +54,18 @@ class Datascope_Psycods2(Dialect):
 
 class Url(object):
     """URL object describing a database"""
-    #dburl is similar to a sqlalchemy URL where it can be any object
     _defaults = {
         'datascope' : 'psycods2'
     }
     
     def __init__(self, database=None, drivername=None, username=None, password=None, host=None, port=None, query=None):
-        self.database = database
+        self.database   = database
         self.drivername = drivername
-        self.username = username
-        self.password = password
-        self.host = host
-        self.port = port
-        self.query = query
+        self.username   = username
+        self.password   = password
+        self.host       = host
+        self.port       = port
+        self.query      = query
     
     def get_dialect(self):
         """Stub"""
@@ -106,6 +132,15 @@ class Query(object):
     cursor = None
     
     def __init__(self, cls, session=None):
+        """
+        Create a Query
+
+        Inputs
+        ------
+        cls = str or object with a '__tablename__' attribute str name of a table to query
+        session = Session instance to use (created from sessionmaker) [None]
+
+        """
         self.session = session
         if not isinstance(cls, str):
             cls = cls.__tablename__
@@ -121,6 +156,14 @@ class Query(object):
         return self.cursor.rowcount
 
     def delete(self):
+        """
+        Not Implemented
+
+        Should delete everything from query if possible
+        """
+        #for t in self:
+        #    rc = self.cursor.execute('mark')
+        #self.cursor.execute('crunch')
         pass
 
     def get(self, ident):
@@ -133,6 +176,7 @@ class Query(object):
     def join(self, *props, **kwargs):
         """
         Join stuff - needs work
+        (kwargs should modify join keys, if possible)
         """
         self.cursor.executemany('join', [[t] for t in props])    
         return self
