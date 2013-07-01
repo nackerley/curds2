@@ -1,7 +1,6 @@
 #
 # SQLAlchemy-type classes for Datascope
 #
-
 #
 # HIGHLY EXPERIMENTAL
 # This is a hacktacular quickie attempt at stubbing and placeholding
@@ -252,7 +251,7 @@ class sessionmaker(object):
     Creates a Session class to spawn sessions from an Engine
     """
     # turn bind into a db name and perm?
-    def __new__(self, bind=None, class_=_SessionMethods):
+    def __new__(cls, bind=None, class_=_SessionMethods):
         return type.__new__(type, "Session", (class_,), {'engine': bind, 'connect_args': bind.connect_args})
 
 

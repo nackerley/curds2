@@ -7,7 +7,7 @@ try:
     import collections
 except ImportError:
     pass
-from antelope.datascope import (Dbptr, dbALL, dbNULL, dbINVALID,
+from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
     dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
 
 # DBAPI top level attributes
@@ -386,17 +386,23 @@ class Connection(object):
     row_factory = None
     CONVERT_NULL = False
 
-    def __init__(self, database, perm='r', **kwargs):
+    def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
         Open a connection to a Datascope database
+
+        Pass python None to open a db in memory.
         
         Inputs
         ------
         database : str name
         perm     : str of permissions
+        schema   : str of temp schema
     
         """
-        self._dbptr = Dbptr(database, perm=perm)
+        if database is not None:
+            self._dbptr = Dbptr(database, perm=perm)
+        else:
+            self._dbptr = dbtmp(schema)
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
@@ -426,7 +432,7 @@ class Connection(object):
         """
         return Cursor(self._dbptr, connection=self, **kwargs)
         
-def connect(dsn, perm='r', **kwargs):
+def connect(dsn=None, perm='r', **kwargs):
     """
     Return a Connection object to a Datascope database
     
