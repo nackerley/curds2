@@ -19,36 +19,6 @@
 # Datascope stuff available in the basic pointer API
 #
 
-class Base(object):
-    """
-    Base class
-    
-    Not Implemented, could be done as a metaclass call based on schema?
-
-    """
-    def __init__(self, tablename=None):
-        self.__tablename__ = tablename
-
-
-class Dialect(object):
-    """Stub Dialect"""
-    pass
-
-
-class Datascope_Psycods2(Dialect):
-    """
-    Dialect for Datascope using the DBAPI2.0
-    """
-    
-    name = 'datascope'
-    driver = 'psycods2'
-    
-    def __init__(self):
-        self.drv = __import__(self.driver)
-        
-    def create_connect_args(self, url):
-        row = getattr(self.drv, 'NamedTupleRow')
-        return {'row_factory' : row, 'CONVERT_NULL' : True}
 
 
 class Url(object):
@@ -73,8 +43,11 @@ class Url(object):
         else:
             name = self.drivername
             driver = self._defaults[name]
+        modname = '_'.join([name, driver])
         clsname = '_'.join([name.capitalize(), driver.capitalize()])
-        return globals()[clsname]()
+        mod = __import__(modname)
+        cls = getattr(mod, clsname)
+        return cls()
 
 
 class _SessionMethods(object):
@@ -113,7 +86,7 @@ class _SessionMethods(object):
         rec = cursor.execute('addnull')
         cursor.scroll(rec, "absolute")
         fields = [d[0] for d in cursor.description]
-        cursor.executemany('addv', [(k,v) for k,v in obj.__dict__.iteritems() if k in fields])
+        cursor.executemany('putv', [(k,v) for k,v in obj.__dict__.iteritems() if k in fields])
 
 
 class Query(object):

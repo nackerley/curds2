@@ -205,7 +205,8 @@ class _BaseRow(object):
 
 class Dialect(object):
     """Stub Dialect"""
-    pass
+    name = None
+    driver = None
 
 
 class Datascope_Psycods2(Dialect):
