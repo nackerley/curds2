@@ -1,6 +1,6 @@
 #
 # SQLAlchemy-type classes for Datascope
-#
+# -by Mark 2013
 #
 # HIGHLY EXPERIMENTAL
 # This is a hacktacular quickie attempt at stubbing and placeholding
@@ -18,23 +18,77 @@
 # multithreading connections and two-phase support for out-of-the-box
 # Datascope stuff available in the basic pointer API
 #
+#
+# Notes: 
+# - All classes EXCEPT for 'URL' written by Mark Williams
+#
+# - URL class was adapted from exisitng SQLAlchemy class (MIT license)
+#   see inline for copyright info.
+
+import re, urllib
 
 
+class URL(object):
+    # BASED ON SQLAlchemy, some methods were copied outright.
+    # Their copyright and release is below:
+    #----------------------------------------------------------------------------#
+    # Copyright (C) 2005-2013 the SQLAlchemy authors and contributors <see AUTHORS file>
+    #
+    # This module is part of SQLAlchemy and is released under
+    # the MIT License: http://www.opensource.org/licenses/mit-license.php
+    #----------------------------------------------------------------------------#
+    """
+    URL object describing a database
+    
+    """
 
-class Url(object):
-    """URL object describing a database"""
     _defaults = {
         'datascope' : 'psycods2'
     }
     
-    def __init__(self, database=None, drivername=None, username=None, password=None, host=None, port=None, query=None):
-        self.database   = database
+    def __init__(self, drivername, username=None, password=None, host=None, port=None, database=None, query=None):
         self.drivername = drivername
-        self.username   = username
-        self.password   = password
-        self.host       = host
-        self.port       = port
-        self.query      = query
+        self.username = username
+        self.password = password
+        self.host = host
+        if port is not None:
+            self.port = int(port)
+        else:
+            self.port = None
+        self.database = database
+        self.query = query or {}
+
+    def __str__(self):
+        s = self.drivername + "://"
+        if self.username is not None:
+            s += self.username
+            if self.password is not None:
+                s += ':' + urllib.quote_plus(self.password)
+            s += "@"
+        if self.host is not None:
+            s += self.host
+        if self.port is not None:
+            s += ':' + str(self.port)
+        if self.database is not None:
+            s += '/' + self.database
+        if self.query:
+            keys = self.query.keys()
+            keys.sort()
+            s += '?' + "&".join("%s=%s" % (k, self.query[k]) for k in keys)
+        return s
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        return \
+            isinstance(other, URL) and \
+            self.drivername == other.drivername and \
+            self.username == other.username and \
+            self.password == other.password and \
+            self.host == other.host and \
+            self.database == other.database and \
+            self.query == other.query
     
     def get_dialect(self):
         """Stub"""
@@ -43,11 +97,55 @@ class Url(object):
         else:
             name = self.drivername
             driver = self._defaults[name]
-        modname = '_'.join([name, driver])
-        clsname = '_'.join([name.capitalize(), driver.capitalize()])
+        modname = '__'.join([name, driver])
+        clsname = '__'.join([name.capitalize(), driver.capitalize()])
         mod = __import__(modname)
         cls = getattr(mod, clsname)
-        return cls()
+        return cls
+    
+    @staticmethod
+    def _parse_rfc1738_args(name):
+        pattern = re.compile(r'''
+                (?P<name>[\w\+]+)://
+                (?:
+                    (?P<username>[^:/]*)
+                    (?::(?P<password>[^/]*))?
+                @)?
+                (?:
+                    (?P<host>[^/:]*)
+                    (?::(?P<port>[^/]*))?
+                )?
+                (?:/(?P<database>.*))?
+                ''', re.X)
+
+        m = pattern.match(name)
+        if m is not None:
+            components = m.groupdict()
+            if components['database'] is not None:
+                tokens = components['database'].split('?', 2)
+                components['database'] = tokens[0]
+                query = (len(tokens) > 1 and tokens[1].split('&') ) or None
+                # Py2K
+                if query is not None:
+                    query = dict((k.encode('ascii'), query[k]) for k in query)
+                # end Py2K
+            else:
+                query = None
+            components['query'] = query
+
+            if components['password'] is not None:
+                components['password'] = \
+                    urllib.unquote_plus(components['password'])
+
+            name = components.pop('name')
+            return URL(name, **components)
+        else:
+            raise ValueError(
+                "Could not parse rfc1738 URL from string '%s'" % name)
+
+    @classmethod
+    def from_string(cls, url_string):
+        return cls._parse_rfc1738_args(url_string)
 
 
 class _SessionMethods(object):
@@ -86,7 +184,7 @@ class _SessionMethods(object):
         rec = cursor.execute('addnull')
         cursor.scroll(rec, "absolute")
         fields = [d[0] for d in cursor.description]
-        cursor.executemany('putv', [(k,v) for k,v in obj.__dict__.iteritems() if k in fields])
+        cursor.executemany('putv', [(k,v) for k,v in obj.to_dict.iteritems() if k in fields])
 
 
 class Query(object):
@@ -120,9 +218,6 @@ class Query(object):
     
     def __iter__(self):
         return self.cursor.__iter__()
-
-    #def __str__(self):
-    #    pass 
     
     def count(self):
         return self.cursor.rowcount
@@ -222,6 +317,7 @@ class Engine(object):
 class sessionmaker(object):
     """
     Creates a Session class to spawn sessions from an Engine
+   
     """
     # turn bind into a db name and perm?
     def __new__(cls, bind=None, class_=_SessionMethods):
@@ -239,6 +335,8 @@ def create_engine(dburl, **kwargs):
     """
     # set from URL
     url = dburl
+    if isinstance(url, str):
+        url = URL.from_string(url)
     # Stubs for now - typically build pool/dialect from url
     pool    = None
     dialect = None

@@ -2,7 +2,7 @@
 # orm.py -by MCW 2013
 #
 """
-Base class and generator for Datascope 
+Base classes and generators for Datascope Object-Relational Mapping 
 
 """
 from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL)
@@ -141,9 +141,9 @@ class Base(dict, object):
         for k in self.PRIMARY_KEY:
             if '::' in k:
                 for _k in k.split('::'):
-                    mids.append( ( _k, str(self.__getattr__(_k)) ) )
+                    mids.append( ( _k, str(self.get(_k)) ) )
             else:
-                mids.append( ( k, str(self.__getattr__(k)) ) )
+                mids.append( ( k, str(self.get(k)) ) )
         middle = ', '.join(['='.join([_k,_v]) for _k,_v in mids])
         end = ")"
         return start+middle+end
@@ -172,12 +172,18 @@ class Base(dict, object):
 
 class tablemaker(object):
     """
-    Generic table class which generates records as instances of table classes
+    Generic table class generator
 
     """
     def __new__(cls, source):
         """
         Create a class from relation source
+        
+        Input
+        -----
+        source : dbptr to a table/record OR str of table name
+
+        Returns : Class of type Base, named by table
 
         """
         if isinstance(source, Dbptr):
@@ -189,5 +195,21 @@ class tablemaker(object):
         tabletype = type.__new__(type, tablename.capitalize(), (Base,), {'__tablename__': tablename})
         
         return tabletype
+
+
+class RowProxy(object):
+    """
+    Make a 'row' record instance of a table class from a Dbptr
+    
+    Input
+    -----
+    dbptr : Dbptr to a record
+
+    Returns : instance of a Base class created by tablemaker
+
+    """
+    def __new__(cls, dbptr):
+        Table = tablemaker(dbptr)
+        return Table(dbptr)
 
 
