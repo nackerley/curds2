@@ -4,9 +4,16 @@
 """
 Base classes and generators for Datascope Object-Relational Mapping 
 
+Classes
+-------
+Base : ORM base, build from pointer
+
+tablemaker : Make a table class of 'Base' type
+
+RowProxy : create an instance of Base from a Dbptr & tablemaker
+
 """
 from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL)
-
 
 class Base(dict, object):
     """
