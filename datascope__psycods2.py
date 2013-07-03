@@ -67,7 +67,7 @@ class Datascope__Psycods2(Dialect):
     
     @staticmethod        
     def create_connect_args(url):
-        row = _BaseRow
-        return {'row_factory' : row, 'CONVERT_NULL' : False}
-
-
+        conn_args = {'row_factory' : _BaseRow, 'CONVERT_NULL' : False}
+        if 'perm' in url.query:
+            conn_args.update({'perm': url.query['perm']})
+        return conn_args

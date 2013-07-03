@@ -125,10 +125,9 @@ class URL(object):
                 tokens = components['database'].split('?', 2)
                 components['database'] = tokens[0]
                 query = (len(tokens) > 1 and tokens[1].split('&') ) or None
-                # Py2K
                 if query is not None:
+                    query = dict(q.split('=') for q in query) 
                     query = dict((k.encode('ascii'), query[k]) for k in query)
-                # end Py2K
             else:
                 query = None
             components['query'] = query
