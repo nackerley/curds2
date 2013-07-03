@@ -6,11 +6,14 @@ Base classes and generators for Datascope Object-Relational Mapping
 
 Classes
 -------
-Base : ORM base, build from pointer
+Base : ORM base for a record, methods to access database fields
 
-tablemaker : Make a table class of 'Base' type
+tablemaker : Make a table class which inherits Base
 
-RowProxy : create an instance of Base from a Dbptr & tablemaker
+Schema : A class whose instances have attributes containing
+          table classes for every table in a given schema.
+
+RowProxy : create an instance of table class from a Dbptr
 
 """
 from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL)
@@ -23,9 +26,9 @@ class Base(dict, object):
     
     Attributes
     ----------
-    TABLE_NAME : name of table, query 'dbTABLE_NAME'
-    PRIMARY_KEY : tuple of primary keys, query 'dbPRIMARY_KEY'
-    TABLE_FIELDS : tuple of fields, query 'dbTABLE_FIELDS'
+    __tablename__ : name of table, query 'dbTABLE_NAME'
+    PRIMARY_KEY   : tuple of primary keys, query 'dbPRIMARY_KEY'
+    TABLE_FIELDS  : tuple of fields, query 'dbTABLE_FIELDS'
     Fields : sorted list of fields
 
     Methods
@@ -39,27 +42,34 @@ class Base(dict, object):
     returned by querying the open db using the pointer.
     
     """
-    # Only holds one thing in Python namespace, Dbptr object:
+    # ATTRIBUTES
     _ptr = Dbptr()
     
-    # built in queries for useful info
+    __tablename__ = None
+
+    PRIMARY_KEY  = None
+    TABLE_FIELDS = None
+
+    ### MAY BE DEPRICATED IN FUTURE !!! ######################################
+    #--- built-in self queries for useful info ------------------------------#
     @property
-    def TABLE_NAME(self):
-        return self._ptr.query('dbTABLE_NAME')  # string of what table record came from
+    def _TABLE_NAME(self):
+        return self.get_tablename(self._ptr)
     
     @property
-    def PRIMARY_KEY(self):
-        return self._ptr.query('dbPRIMARY_KEY') # tuple of strings of fields in primary key
+    def _PRIMARY_KEY(self):
+        return self.get_primarykey(self._ptr)
     
     @property
-    def TABLE_FIELDS(self):              # tuple of fields from database record
-        return self._ptr.query('dbTABLE_FIELDS')
+    def _TABLE_FIELDS(self):
+        return self.get_tablefields(self._ptr)
     
     @property
-    def Fields(self):                   # May go away in future
-        flist = list(self.TABLE_FIELDS)
+    def Fields(self):
+        flist = list(self._TABLE_FIELDS)
         flist.sort()
         return flist
+    #------------------------------------------------------------------------#
     
     @property
     def _ptrNULL(self):
@@ -69,10 +79,23 @@ class Base(dict, object):
         nullptr = Dbptr(self._ptr)
         nullptr.record = dbNULL
         return nullptr
+    
+    @staticmethod
+    def get_tablename(dbptr):
+        return dbptr.query('dbTABLE_NAME')
 
+    @staticmethod
+    def get_primarykey(dbptr):
+        return dbptr.query('dbPRIMARY_KEY')
+    
+    @staticmethod
+    def get_tablefields(dbptr):
+        return dbptr.query('dbTABLE_FIELDS')
+    
     def __init__(self, db=None):
         """
-        Create a tuple from a database pointer.
+        Create a tuple instance from a database pointer.
+    
         """
         if db:
             if db.record == dbALL:
@@ -81,10 +104,15 @@ class Base(dict, object):
         else:
             self._ptr = Dbptr()
             raise NotImplementedError("No empty contructor allowed here yet...")
-
+        
         # If instance is tied to a table, make sure it's a pointer to that one
-        if hasattr(self, '__tablename__') and self.__tablename__ != self.TABLE_NAME:
+        if hasattr(self, '__tablename__') and self.__tablename__ != self._TABLE_NAME:
             raise ValueError("Not a valid pointer for " +  self.__tablename__)
+        
+        if self.PRIMARY_KEY is None:
+            self.PRIMARY_KEY  = self._PRIMARY_KEY
+        if self.TABLE_FIELDS is None:
+            self.TABLE_FIELDS = self._TABLE_FIELDS
 
     def __getattr__(self, field):
         """
@@ -166,7 +194,6 @@ class Base(dict, object):
         fields = tuple([self.__getattr__(f) for f in self.TABLE_FIELDS])
         return formatting % fields
     
-    @property
     def to_dict(self):
         """
         Return a dict of key, value pairs for every field in the record
@@ -176,8 +203,8 @@ class Base(dict, object):
         """
         return dict([(f, self.get(f)) for f in self.TABLE_FIELDS])
 
-
-class tablemaker(object):
+# Metaclass type to make table classes on the fly
+class tablemaker(type):
     """
     Generic table class generator
 
@@ -190,16 +217,19 @@ class tablemaker(object):
         -----
         source : dbptr to a table/record OR str of table name
 
-        Returns : Class of type Base, named by table
+        Returns : Class of type tablemaker, inherits Base, named by table
 
         """
         if isinstance(source, Dbptr):
-            tablename = source.query('dbTABLE_NAME')
+            dict_ = { '__tablename__' : Base.get_tablename(source),
+                       'PRIMARY_KEY'  : Base.get_primarykey(source),
+                       'TABLE_FIELDS' : Base.get_tablefields(source),
+                    }
         elif isinstance(source, str):
-            tablename = source
+            dict_ = { '__tablename__' : source }
         else:
             raise ValueError('Input a Dbptr or string to create a class')
-        tabletype = type.__new__(type, tablename.capitalize(), (Base,), {'__tablename__': tablename})
+        tabletype = super(tablemaker, cls).__new__(cls, dict_['__tablename__'].capitalize(), (Base,), dict_ )
         
         return tabletype
 
@@ -218,5 +248,32 @@ class RowProxy(object):
     def __new__(cls, dbptr):
         Table = tablemaker(dbptr)
         return Table(dbptr)
+
+
+class Schema(object):
+    """
+    Namespace containing all classes for a given schema
+    
+    Attributes
+    ----------
+    Uppercase names of all tables in a schema
+    -> containing a class for each one
+
+    """
+    def __init__(self, schema='css3.0'):
+        """
+        Make a schema of classes for all tables
+
+        >>> s = Schema(schema='css3.0')
+        >>> s.Assoc
+        orm.Assoc
+        
+        """
+        db = dbtmp(schema) 
+        for t in db.query('dbSCHEMA_TABLES'):
+            _db = db.lookup(table=t)
+            self.__setattr__(t.capitalize(), tablemaker(_db))
+        db.close()
+
 
 
