@@ -505,33 +505,14 @@ class UTCOrdDictRow(collections.OrderedDict):
         kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
 
-
-class SQLValuesRow(object):
-    """
-    A row_factory function to provide SQL values
-    
-    Instance is a namedtuple with: field names as attributes.
-                                   SQL strings as values
-    
-    Methods
-    -------
-    __str__ : The 'str' function will return a string suitable for passing after
-              'VALUES' in an SQL statement
-
-    Class Methods
-    -------------
-    values_str : class version of the __str__ function, if one would like to
-                 make a subset of the returned values (for an UPDATE, e.g.)
-                 from a custom sequence.
-    
-    """
+class _SQLValues(object):
     @staticmethod
     def _sql_str(value):
         """
         Convert a value to a string suitable for an sql statement
         """
         if isinstance(value, str):
-            v = "'{0}'".format(value)
+            v = "'{0}'".format(value.replace("'","''"))
         elif isinstance(value, float) or isinstance(value, int):
             v = str(value)
         elif value is None:
@@ -553,6 +534,9 @@ class SQLValuesRow(object):
         return [cls._sql_str(r) for r in row]
     
     @staticmethod
+    def values_str(values):
+        return '(' + ', '.join(values) + ')'
+        
     def __str__(self):
         """
         String of the tuple used as input for VALUES
@@ -560,12 +544,33 @@ class SQLValuesRow(object):
         Input : sequence of SQL value strings
 
         """
-        return '(' + ', '.join(self) + ')'
+        return self.values_str(self)
+
+
+class SQLValuesRow(_SQLValues):
+    """
+    A row_factory function to provide SQL values
+    
+    Instance is a namedtuple with: field names as attributes.
+                                   SQL strings as values
+    
+    Methods
+    -------
+    __str__ : The 'str' function will return a string suitable for passing after
+              'VALUES' in an SQL statement
+
+    Class Methods
+    -------------
+    values_str : class version of the __str__ function, if one would like to
+                 make a subset of the returned values (for an UPDATE, e.g.)
+                 from a custom sequence.
+    
+    """
 
     def __new__(cls, cursor, row):
-        Tuple = collections.namedtuple('NamedTupleRow', [d.name.replace('.','_') for d in cursor.description])
-        class_ = type(cls.__name__, (Tuple,), {'__str__' : cls.__str__, 'values_str': staticmethod(cls.__str__)})
-        return class_( *cls._values(row) )
+        Tuple = collections.namedtuple(cls.__name__, [d.name.replace('.','_') for d in cursor.description])
+        class_ = type(cls.__name__, (_SQLValues, Tuple,), {})
+        return class_( *super(SQLValuesRow, cls)._values(row) )
 
 #
 #---------------------------------------------------------------------#
