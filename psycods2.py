@@ -158,7 +158,7 @@ class Cursor(object):
         if self._dbptr.table == dbALL or dbINVALID in self._dbptr:
             return None
         if 'collections' in globals() and hasattr(collections, 'namedtuple'):
-            Tuple = collections.namedtuple('Tuple', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
+            Tuple = collections.namedtuple('Column', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
         else:
             Tuple = tuple
         dbptr = self._nullptr
@@ -505,6 +505,52 @@ class UTCOrdDictRow(collections.OrderedDict):
     def __init__(self, cursor, row):
         kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
+
+class SQLValuesRow(object):
+    """
+    STUB!!
+
+    A row_factory function to provide SQL values
+    """
+    @staticmethod
+    def _sql_str(value):
+        """
+        Convert a value to a string suitable for an sql statement
+        """
+        if isinstance(value, str):
+            v = "'{0}'".format(value)
+        elif isinstance(value, float) or isinstance(value, int):
+            v = str(value)
+        elif value is None:
+            v = 'NULL'
+        else:
+            raise Exception("Your type not supported in SQLValuesRow!")
+        return v
+
+    @classmethod
+    def _values(cls, row):
+        """
+        row : seq of values from a database
+        
+        Return
+        ------
+        list of strings formatted for SQL
+
+        """
+        return [cls._sql_str(r) for r in row]
+
+    @classmethod
+    def values_str(cls, row):
+        """
+        String of the tuple used as input for VALUES
+
+        """
+        return '(' + ','.join( cls._values(row) ) + ')'
+
+    # Have to build key/value tuple pairs...
+    def __init__(self, cursor, row):
+        self.columns = [d.name for d in cursor.description]
+        self.values_str = self.values_str(row)        
 
 #
 #---------------------------------------------------------------------#

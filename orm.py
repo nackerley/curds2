@@ -4,16 +4,21 @@
 """
 Base classes and generators for Datascope Object-Relational Mapping 
 
+Metaclasses/Types
+-----
+Table : Make a table class which inherits Base
+
+
 Classes
 -------
-Base : ORM base for a record, methods to access database fields
+Base  : ORM base class for a record as a table instance,
+         contains methods to access database fields.
 
-tablemaker : Make a table class which inherits Base
+RowProxy : Creates an instance of a table class from a Dbptr.
 
 Schema : A class whose instances have attributes containing
           table classes for every table in a given schema.
 
-RowProxy : create an instance of table class from a Dbptr
 
 """
 from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL)
@@ -204,7 +209,7 @@ class Base(dict, object):
         return dict([(f, self.get(f)) for f in self.TABLE_FIELDS])
 
 # Metaclass type to make table classes on the fly
-class tablemaker(type):
+class Table(type):
     """
     Generic table class generator
 
@@ -215,9 +220,16 @@ class tablemaker(type):
         
         Input
         -----
-        source : dbptr to a table/record OR str of table name
+        source : dbptr to a table/record
+                 OR
+                 string of table name
+                 OR
+                 dict with the following keys:
+                    '__tablename__' : str of table name [required]
+                    'PRIMARY_KEY'   : seq of str names of PK fields
+                    'TABLE_FIELDS'  : seq of str names of all fields
 
-        Returns : Class of type tablemaker, inherits Base, named by table
+        Returns : Class of type Table, inherits Base, named by table
 
         """
         if isinstance(source, Dbptr):
@@ -227,11 +239,12 @@ class tablemaker(type):
                     }
         elif isinstance(source, str):
             dict_ = { '__tablename__' : source }
+        elif isinstance(source, dict) and '__tablename__' in source:
+            dict_ = source
         else:
-            raise ValueError('Input a Dbptr or string to create a class')
-        tabletype = super(tablemaker, cls).__new__(cls, dict_['__tablename__'].capitalize(), (Base,), dict_ )
+            raise ValueError('Input a Dbptr, string, or dict to create a class')
         
-        return tabletype
+        return super(Table, cls).__new__(cls, dict_['__tablename__'].capitalize(), (Base,), dict_ )
 
 
 class RowProxy(object):
@@ -246,8 +259,8 @@ class RowProxy(object):
 
     """
     def __new__(cls, dbptr):
-        Table = tablemaker(dbptr)
-        return Table(dbptr)
+        table = Table(dbptr)
+        return table(dbptr)
 
 
 class Schema(object):
@@ -272,7 +285,7 @@ class Schema(object):
         db = dbtmp(schema) 
         for t in db.query('dbSCHEMA_TABLES'):
             _db = db.lookup(table=t)
-            self.__setattr__(t.capitalize(), tablemaker(_db))
+            self.__setattr__(t.capitalize(), Table(_db))
         db.close()
 
 
