@@ -9,18 +9,27 @@ Summary
 
 The purpose of this module is to abstract processing programs from any specific database backend. See the [PEP 249 -- Python Database API Specification v2.0](http://www.python.org/dev/peps/pep-0249/) for details on the specifications, and the python class, function and method docstrings for details on the implementation.
 
+
+Implementation of Execute
+-------------------------
+The `execute` method of the `Cursor` currently accepts the string name of any Dbptr method. A subsequent sequence or mapping is then passed as arguments to this method on the current Cursor pointer. Variable substitution is currently not supported. Any execution returning a pointer sets this as the new cursor pointer and returns the number of records. All other returns values (i.e. queries) are returned directly.
+
+
 Customizations
 --------------
+
 ### NULL support
 
 Datascope has no NULL type, each field defines its own value which compares equal to NULL. Therefore, NULLs must be explicitly looked up and converted, at a slight performance overhead. This can be enabled for this module by setting the Cursor attribute `CONVERT_NULL` to `True`. All fields in any rows returned the the `fetch*` methods will contain a python `None` for any NULL value. 
 
 ### Factory support
 
-This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has three pre-defined row factory classes:
+This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has several pre-defined row factory classes:
 * NamedTupleRow - Rows of python namedtuples with attribute-style access to each item.
 * OrderedDictRow - Rows of python OrderedDict instances.
 * UTCOrdDictRow - Identical to OrderedDictRow, with any field comparing to 'dbTIME' converted to an ObsPy UTCDateTime object.
+* SQLValuesRow - A namedtuple row of values converted to SQL strings, contains methods to generate SQL statement parts.
+
 
 Contact
 -------
