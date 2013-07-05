@@ -80,6 +80,7 @@ def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
 #----------------------------------------------------------------------------#
+
 class _Executer(object):
     """
     Executes commands as a function or attribute
@@ -126,10 +127,11 @@ class _Executer(object):
 
     def __getattr__(self, operation):
         """
-        Return a function that calls your method 'operaton'
+        Return a function that calls your method 'operation'
         """
         def _dbproc(*args, **kwargs):
             return self.__execute(self.__cursor, operation, *args, **kwargs)
+        
         return _dbproc
 
     def __call__(self, operation, params=[]):
@@ -142,9 +144,9 @@ class _Executer(object):
             result = self.__execute(self.__cursor, operation, *params)
         return result
 
-    
 
 # DBAPI Classes
+#----------------------------------------------------------------------------#
 class Cursor(object):
     """
     DBAPI 2.0 compatible cursor type for Datascope
@@ -188,10 +190,10 @@ class Cursor(object):
     arraysize = 1           # Step size for fetch
     
     # EXTENSIONS
-    connection = None       # Not Implemented Yet
+    connection = None       # Parent Connection
     
     # CUSTOM
-    CONVERT_NULL = None    # Convert NULL values to python None
+    CONVERT_NULL = None     # Convert NULL values to python None
     row_factory = None      # Use this to build rows (default is tuple)
 
     @property
@@ -271,6 +273,7 @@ class Cursor(object):
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
+        
         # inherit row_factory from Connection if not set on creation
         if self.row_factory is None and self.connection:
             self.row_factory = self.connection.row_factory
@@ -348,9 +351,10 @@ class Cursor(object):
         return _Executer(self)
 
     def executemany(self, operation, param_seq=[]):
+        """Execute one command multiple times"""
         for params in param_seq:
             rc = self.execute(operation, params)
-        return self.rowcount
+        return rc
         
     def fetchone(self):
         """
@@ -503,7 +507,7 @@ def connect(dsn=None, perm='r', **kwargs):
     dsn  : str of name of database (Data Source Name)
     perm : str of permission - passed to Datascope API ('r')
         
-    
     """
     return Connection(dsn, perm=perm, **kwargs)
+
 
