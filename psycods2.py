@@ -16,8 +16,7 @@ threadsafety = 0          # Playing it safe (datascope??)
 paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
 # DBAPI standard exceptions
-class Error(exceptions.StandardError):
-    pass
+class Error(exceptions.StandardError): pass
 
 class Warning(exceptions.StandardError):
     pass
@@ -506,11 +505,25 @@ class UTCOrdDictRow(collections.OrderedDict):
         kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
 
+
 class SQLValuesRow(object):
     """
-    STUB!!
-
     A row_factory function to provide SQL values
+    
+    Instance is a namedtuple with: field names as attributes.
+                                   SQL strings as values
+    
+    Methods
+    -------
+    __str__ : The 'str' function will return a string suitable for passing after
+              'VALUES' in an SQL statement
+
+    Class Methods
+    -------------
+    values_str : class version of the __str__ function, if one would like to
+                 make a subset of the returned values (for an UPDATE, e.g.)
+                 from a custom sequence.
+    
     """
     @staticmethod
     def _sql_str(value):
@@ -538,19 +551,21 @@ class SQLValuesRow(object):
 
         """
         return [cls._sql_str(r) for r in row]
-
-    @classmethod
-    def values_str(cls, row):
+    
+    @staticmethod
+    def __str__(self):
         """
         String of the tuple used as input for VALUES
 
-        """
-        return '(' + ','.join( cls._values(row) ) + ')'
+        Input : sequence of SQL value strings
 
-    # Have to build key/value tuple pairs...
-    def __init__(self, cursor, row):
-        self.columns = [d.name for d in cursor.description]
-        self.values_str = self.values_str(row)        
+        """
+        return '(' + ', '.join(self) + ')'
+
+    def __new__(cls, cursor, row):
+        Tuple = collections.namedtuple('NamedTupleRow', [d.name.replace('.','_') for d in cursor.description])
+        class_ = type(cls.__name__, (Tuple,), {'__str__' : cls.__str__, 'values_str': staticmethod(cls.__str__)})
+        return class_( *cls._values(row) )
 
 #
 #---------------------------------------------------------------------#
