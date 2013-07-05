@@ -80,6 +80,69 @@ def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
 #----------------------------------------------------------------------------#
+class _Executer(object):
+    """
+    Executes commands as a function or attribute
+    
+    Allows method style calls to the Dbptr directly, in addition
+    to the standard 'execute' method.
+
+    Notes
+    -----
+    Calling the methods directly is NOT DBAPI2 standard, but is just
+    a convenience that makes sense given the Datascope API
+
+    """
+    @staticmethod
+    def __execute(cursor, operation, *args, **kwargs):
+        """
+        Based on original execute function
+        """
+        # Check it exists
+        if not hasattr(cursor._dbptr, operation):
+            raise ProgrammingError("No such command available: " + operation)
+        
+        # Get method fxn    
+        proc = getattr(cursor._dbptr, operation)
+        result = proc(*args, **kwargs) 
+        
+        # Return depends on result
+        if isinstance(result, Dbptr):
+            cursor._dbptr = result
+            return cursor.rowcount
+        else:
+            return result
+    
+    def __init__(self, cursor):
+        """
+        Create an object to execute a Dbptr method
+
+        Input
+        -----
+        DBAPI2 Cursor instance
+        
+        """
+        self.__cursor = cursor
+
+    def __getattr__(self, operation):
+        """
+        Return a function that calls your method 'operaton'
+        """
+        def _dbproc(*args, **kwargs):
+            return self.__execute(self.__cursor, operation, *args, **kwargs)
+        return _dbproc
+
+    def __call__(self, operation, params=[]):
+        """
+        Standard DBAPI2-style execute as a function
+        """
+        if isinstance(params, dict):
+            result = self.__execute(self.__cursor, operation, **params)
+        else:
+            result = self.__execute(self.__cursor, operation, *params)
+        return result
+
+    
 
 # DBAPI Classes
 class Cursor(object):
@@ -237,29 +300,42 @@ class Cursor(object):
     def close(self):
         """Close database connection"""
         self._dbptr.close()
-
-    def execute(self, operation, params=[]):
+    
+    @property
+    def execute(self):
         """
         Execute Datascope database command
 
         Because Datascope doesn't have an exposed 'language', and
         most of the functionality is already available through the
         Dbptr API, this is just an attempt at standardizing these calls.
+        
+        Calls
+        =====
 
+        Standard : The standard DBAPI way
+        ---------------------------------
+        result = cursor.execute(operation, params=[])
+
+            Inputs
+            ------
+            operation : name of a Dbptr method
+            params    : sequence or mapping of parameters for given method
         
-        Inputs
-        ------
-        operation : name of a Dbptr method
-        params    : sequence or mapping of valid parameters for given method
-        
+        API : Use the Datascope API methods
+        -----------------------------------
+        result = cursor.execute.operation(*params, **kparams)
+            
+            Call Dbptr methods directly.
+
         Returns
-        -------
+        =======
         Depends on command, anything returning a Dbptr modifies the cursor
         and is available through the 'fetch*' methods or by iterating, 
         and returns the number of rows, anything else is returned directly.
         
         Notes
-        -----
+        =====
         This is a hacky way to get at Datascope functions, originally done
         through 'callproc', but this should be the main method, so... 
         
@@ -269,21 +345,8 @@ class Cursor(object):
         by say, converting any datetime objects to the float stamp expected.
         
         """
-        if not hasattr(self._dbptr, operation):
-            raise ProgrammingError("No such command available: " + operation)
-            
-        proc = getattr(self._dbptr, operation)
-        if isinstance(params, dict):
-            result = proc(**params)
-        else:
-            result = proc(*params)
-        
-        if isinstance(result, Dbptr):
-            self._dbptr = result
-            return self.rowcount
-        else:
-            return result
-    
+        return _Executer(self)
+
     def executemany(self, operation, param_seq=[]):
         for params in param_seq:
             rc = self.execute(operation, params)
