@@ -452,7 +452,7 @@ class Connection(object):
     row_factory = None
     CONVERT_NULL = False
 
-    def __init__(self, database, perm='r', schema='css3.0', **kwargs):
+    def __init__(self, database=':memory:', perm='r', schema='css3.0', **kwargs):
         """
         Open a connection to a Datascope database
 
@@ -460,15 +460,15 @@ class Connection(object):
         
         Inputs
         ------
-        database : str name
+        database : str name (':memory:')
         perm     : str of permissions
         schema   : str of temp schema
     
         """
-        if database is not None:
-            self._dbptr = Dbptr(database, perm=perm)
-        else:
+        if database == ":memory:":
             self._dbptr = dbtmp(schema)
+        else:
+            self._dbptr = Dbptr(database, perm=perm)
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
