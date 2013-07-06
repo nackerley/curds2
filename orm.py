@@ -110,14 +110,13 @@ class Base(dict, object):
             self._ptr = Dbptr()
             raise NotImplementedError("No empty contructor allowed here yet...")
         
-        # If instance is tied to a table, make sure it's a pointer to that one
-        if hasattr(self, '__tablename__') and self.__tablename__ != self._TABLE_NAME:
+        # If instance is being tied to a table, complain if not a pointer to that one
+        if self.__tablename__ is not None and self.__tablename__ != self._TABLE_NAME:
             raise ValueError("Not a valid pointer for " +  self.__tablename__)
         
-        if self.PRIMARY_KEY is None:
-            self.PRIMARY_KEY  = self._PRIMARY_KEY
-        if self.TABLE_FIELDS is None:
-            self.TABLE_FIELDS = self._TABLE_FIELDS
+        self.__tablename__ = self._TABLE_NAME
+        self.PRIMARY_KEY  = self._PRIMARY_KEY
+        self.TABLE_FIELDS = self._TABLE_FIELDS
 
     def __getattr__(self, field):
         """
@@ -131,11 +130,10 @@ class Base(dict, object):
         You must have opened your db with r+ permissions!
         """
         # Special case: trying to set the pointer. Else try to write to the db
-        if field == '_ptr':
+        if hasattr(self, field):
             super(Base,self).__setattr__(field, value)
         else:
-            # Could try to catch an ElogComplain in else, but the same
-            # error comes up for read-only or a wrong field
+            # Bad field will raise a TypeError or Usage
             if self._ptr.query('dbDATABASE_IS_WRITABLE'):
                 self._ptr.putv(field, value)
             else:
@@ -208,6 +206,28 @@ class Base(dict, object):
         """
         return dict([(f, self.get(f)) for f in self.TABLE_FIELDS])
 
+
+class RowProxy(Base):
+    """
+    Make a 'row' record instance of a table class from a Dbptr
+    
+    Input
+    -----
+    dbptr : Dbptr to a record
+
+    Returns : instance of a Base class created by tablemaker
+
+    """
+    # This is for return queries, COULD make on the fly with Table,
+    # but it's overhead that's not needed. Could add some dict methods
+    # here, or in Base.
+
+    #def __new__(cls, dbptr):
+    #    table = Table(dbptr)
+    #    return table(dbptr)
+    pass
+
+
 # Metaclass type to make table classes on the fly
 class Table(type):
     """
@@ -245,22 +265,6 @@ class Table(type):
             raise ValueError('Input a Dbptr, string, or dict to create a class')
         
         return super(Table, cls).__new__(cls, dict_['__tablename__'].capitalize(), (Base,), dict_ )
-
-
-class RowProxy(object):
-    """
-    Make a 'row' record instance of a table class from a Dbptr
-    
-    Input
-    -----
-    dbptr : Dbptr to a record
-
-    Returns : instance of a Base class created by tablemaker
-
-    """
-    def __new__(cls, dbptr):
-        table = Table(dbptr)
-        return table(dbptr)
 
 
 class Schema(object):
