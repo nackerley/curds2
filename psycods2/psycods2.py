@@ -452,7 +452,7 @@ class Connection(object):
     row_factory = None
     CONVERT_NULL = False
 
-    def __init__(self, database=':memory:', perm='r', schema='css3.0', **kwargs):
+    def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
         Open a connection to a Datascope database
 
@@ -498,7 +498,7 @@ class Connection(object):
         """
         return Cursor(self._dbptr, connection=self, **kwargs)
         
-def connect(dsn=None, perm='r', **kwargs):
+def connect(dsn=':memory:', perm='r', **kwargs):
     """
     Return a Connection object to a Datascope database
     
