@@ -129,10 +129,10 @@ class _Executer(object):
         """
         Return a function that calls your method 'operation'
         """
-        def _dbproc(*args, **kwargs):
+        def _operation(*args, **kwargs):
             return self.__execute(self.__cursor, operation, *args, **kwargs)
         
-        return _dbproc
+        return _operation
 
     def __call__(self, operation, params=[]):
         """
