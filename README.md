@@ -14,6 +14,21 @@ Implementation of Execute
 -------------------------
 The `execute` method of the `Cursor` currently accepts the string name of any Dbptr method. A subsequent sequence or mapping is then passed as arguments to this method on the current Cursor pointer. Variable substitution is currently not supported. Any execution returning a pointer sets this as the new cursor pointer and returns the number of records. All other returns values (i.e. queries) are returned directly.
 
+As a non-standard, convenience, one can run any Dbptr method directly on the 'execute' object as if it were a pointer:
+
+### Example
+```python
+>>> curs = connect('/tmp/spam').cursor()
+
+# Standard DBAPI2 style
+>>> nrecs1 = curs.execute('lookup', {'table':'origin'})
+
+# Full function call via native API:
+>>> nrecs2 = curs.execute.lookup(table='origin')
+>>> nrecs1 == nrecs2
+True
+
+```
 
 Customizations
 --------------
@@ -24,6 +39,10 @@ Datascope has no NULL type, each field defines its own value which compares equa
 
 ### Factory support
 
+#### Cursor Factory
+Custom Cursors are allowed by passing the class to the `cursor_factory` attribute of any Connection. Possible uses would be to inherit the current Cursor class and override an internal method for more efficient object-relational mapping of rows...
+
+#### Row Factory
 This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has several pre-defined row factory classes:
 * NamedTupleRow - Rows of python namedtuples with attribute-style access to each item.
 * OrderedDictRow - Rows of python OrderedDict instances.
