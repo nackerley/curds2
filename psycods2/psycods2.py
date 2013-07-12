@@ -193,8 +193,8 @@ class Cursor(object):
     connection = None       # Parent Connection
     
     # CUSTOM
-    CONVERT_NULL = None     # Convert NULL values to python None
-    row_factory = None      # Use this to build rows (default is tuple)
+    CONVERT_NULL = False    # Convert NULL values to python None
+    row_factory  = None     # Use this to build rows (default is tuple)
 
     @property
     def _nullptr(self):
@@ -275,14 +275,16 @@ class Cursor(object):
                 self.__setattr__(k, kwargs.pop(k))
         
         # inherit row_factory from Connection if not set on creation
-        if self.row_factory is None and self.connection:
+        if self.row_factory is None and self.connection is not None:
             self.row_factory = self.connection.row_factory
-        if self.CONVERT_NULL is None and self.connection is not None:
+        if self.CONVERT_NULL is False and self.connection is not None:
             self.CONVERT_NULL = self.connection.CONVERT_NULL
 
         # pass anything else to dblookup
-        self._dbptr = self._dbptr.lookup(**kwargs)
-
+        try:
+            self._dbptr = self._dbptr.lookup(**kwargs)
+        except Exception as err:
+            pass
     
     def __iter__(self):
         """Generator, yields a row from 0 to rowcount"""
@@ -448,8 +450,9 @@ class Connection(object):
     
     """
     _dbptr = None
-
-    row_factory = None
+    
+    cursor_factory = Cursor
+    row_factory  = None
     CONVERT_NULL = False
 
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
@@ -496,7 +499,7 @@ class Connection(object):
         (Any kwargs are passed to dblookup)
         
         """
-        return Cursor(self._dbptr, connection=self, **kwargs)
+        return self.cursor_factory(self._dbptr, connection=self, **kwargs)
         
 def connect(dsn=':memory:', perm='r', **kwargs):
     """
@@ -504,7 +507,7 @@ def connect(dsn=':memory:', perm='r', **kwargs):
     
     Inputs
     ------
-    dsn  : str of name of database (Data Source Name)
+    dsn  : str of name of database (':memory:')
     perm : str of permission - passed to Datascope API ('r')
         
     """
