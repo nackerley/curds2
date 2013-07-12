@@ -248,9 +248,11 @@ class Cursor(object):
 
     @property
     def rowcount(self):
-        # try nrecs except return -1
-        return self._dbptr.nrecs()
-    
+        if self._dbptr.table >= 0:
+            return self._dbptr.nrecs()
+        else:
+            return -1
+
     @property
     def rownumber(self):
         return self._dbptr.record
