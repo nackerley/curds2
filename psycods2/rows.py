@@ -14,6 +14,7 @@
 #
 import collections
 
+
 class NamedTupleRow(object):
     """
     A row_factory function for nice fast namedtuple rows
@@ -49,6 +50,7 @@ try:
 except ImportError:
     pass
 
+
 class UTCOrdDictRow(collections.OrderedDict):
     """
     A row_factory function to make OrderedDict rows from row tuple
@@ -59,6 +61,7 @@ class UTCOrdDictRow(collections.OrderedDict):
     def __init__(self, cursor, row):
         kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
+
 
 class _SQLValues(object):
     @staticmethod
