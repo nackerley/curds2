@@ -1,4 +1,4 @@
-Python DBAPI 2.0 for Datascope
+DBAPI 2.0 Cursor for Datascope
 ==============================
 
 This is a implementation of the DBAPI 2.0 database API standard for the Datascope database system designed by [Boulder Real Time Technologies](http://brtt.com).
@@ -14,10 +14,11 @@ Implementation of Execute
 -------------------------
 The `execute` method of the `Cursor` currently accepts the string name of any Dbptr method. A subsequent sequence or mapping is then passed as arguments to this method on the current Cursor pointer. Variable substitution is currently not supported. Any execution returning a pointer sets this as the new cursor pointer and returns the number of records. All other returns values (i.e. queries) are returned directly.
 
-As a non-standard, convenience, one can run any Dbptr method directly on the 'execute' object as if it were a pointer:
+As a non-standard convenience, one can run any Dbptr method directly on the 'execute' object as if it were a pointer:
 
 ### Example
 ```python
+>>> from curds2 import connect
 >>> curs = connect('/tmp/spam').cursor()
 
 # Standard DBAPI2 style
