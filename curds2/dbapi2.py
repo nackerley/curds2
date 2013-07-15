@@ -1,8 +1,8 @@
 #
 # dbapi2 module for Datascope
 #
-import exceptions
-import datetime
+from exceptions import StandardError
+from datetime import date as Date, time as Time, datetime as Timestamp
 try:
     import collections
 except ImportError:
@@ -16,9 +16,9 @@ threadsafety = 0          # Playing it safe (datascope??)
 paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
 # DBAPI standard exceptions
-class Error(exceptions.StandardError): pass
+class Error(StandardError): pass
 
-class Warning(exceptions.StandardError):
+class Warning(StandardError):
     pass
 
 class InterfaceError(Error):
@@ -67,9 +67,9 @@ ROWID    = DBAPITypeObject(dbDBPTR)
 
 Binary    = buffer
 # DBAPI spec  time constructors, prefer obspy.core.utcdatetime.UTCDateTime
-Date      = datetime.date
-Time      = datetime.time
-Timestamp = datetime.datetime
+#Date      = datetime.date
+#Time      = datetime.time
+#Timestamp = datetime.datetime
 
 TimestampFromTicks = Timestamp.fromtimestamp
 
