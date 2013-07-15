@@ -1,5 +1,5 @@
 import os, unittest
-from curds2.dbapi2 import connect, Connection, Cursor, _Executer
+from curds2.dbapi2 import connect, Connection, Cursor, _Executer, ProgrammingError
 
 class ConnectionTestCase(unittest.TestCase):
     
@@ -83,13 +83,59 @@ class CursorTestCase(unittest.TestCase):
         curs.close() 
         self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
         
+    def test_cursor_execute(self):
+        curs = Connection(self.dsn).cursor()
+        self.assertIsInstance( curs.execute, _Executer )
+        curs.close() 
+
+
+class ExecuterTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.dsn = '/opt/antelope/data/db/demo/demo'
+        self.NRECS_ORIGIN = 1351
+        self.conn = connect(self.dsn)
+        self.curs = self.conn.cursor()
+
+    def test_constructor(self):
+        """Test Executer constructor"""
+        ex = _Executer(self.curs)
+        self.assertTrue( hasattr( ex, '__init__') )
+        self.assertTrue( hasattr( ex, '__call__') )
+        self.assertTrue( hasattr( ex, '__getattr__') )
+        self.assertTrue( hasattr( ex, '__execute') )
+        self.assertTrue( hasattr( ex, '__cursor') )
+
+    def test_execute(self):
+        """Test internal execute function"""
+        nrecs0 = _Executer._Executer__execute(self.curs, 'lookup', table='origin')
+        self.assertEqual(nrecs0, self.NRECS_ORIGIN)
+
+    def test_call(self):
+        """Test Executer hits execute using  __call__"""
+        nrecs1 = self.curs.execute('lookup', {'table':'origin'})
+        self.assertEqual(nrecs1, self.NRECS_ORIGIN)
+
+    def test_getattr(self):
+        """Test Executer hits execute using __getattr__"""
+        nrecs2 = self.curs.execute.lookup(table='origin')
+        self.assertEqual(nrecs2, self.NRECS_ORIGIN)
+    
+    def test_bad_method(self):
+        """Test passing a non-existant Dbptr method"""
+        self.assertRaises(ProgrammingError, self.curs.execute, 'spam_the_db', [])
+
+    def tearDown(self):
+        self.conn.close()
+
 
 if __name__ == '__main__':
 
     connection_suite = unittest.TestLoader().loadTestsFromTestCase(ConnectionTestCase)
     cursor_suite     = unittest.TestLoader().loadTestsFromTestCase(CursorTestCase)
-    
-    suite = unittest.TestSuite([connection_suite, cursor_suite])
-    unittest.TextTestRunner(verbosity=3).run(suite)
+    executer_suite   = unittest.TestLoader().loadTestsFromTestCase(ExecuterTestCase)
+
+    suite = unittest.TestSuite([connection_suite, cursor_suite, executer_suite])
+    unittest.TextTestRunner(verbosity=2).run(suite)
 
 
