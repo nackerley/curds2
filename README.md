@@ -23,10 +23,12 @@ As a non-standard convenience, one can run any Dbptr method directly on the 'exe
 
 # Standard DBAPI2 style
 >>> nrecs1 = curs.execute('lookup', {'table':'origin'})
+>>> nrecs2 = curs.executemany('join',[('assoc', False), ('arrival', True)])
 
 # Full function call via native API:
->>> nrecs2 = curs.execute.lookup(table='origin')
->>> nrecs1 == nrecs2
+>>> nrecs3 = curs.execute.lookup(table='origin')
+>>> nrecs4 = curs.execute.join('assoc', outer=False)
+>>> nrecs1 == nrecs3
 True
 
 ```
@@ -53,7 +55,7 @@ This module supports row factory classes similar to those of the sqlite3 (among 
 
 Raw Interface
 -------------
-An implementation of the module using only the 'raw' interface C-library wrapper is available, called `dbapi2_c`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes:
+An implementation of the module using only the 'raw' interface C-library wrapper is available, called `dbapi2_c`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes the full function name:
 ```python
 >>> from curds2.dbapi_c import connect
 >>> curs = connect('demo').cursor()
