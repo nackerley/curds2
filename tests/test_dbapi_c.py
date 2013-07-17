@@ -1,5 +1,5 @@
 import os, unittest
-from curds2.dbapi2_c import connect, Connection, Cursor, _Executer, ProgrammingError
+from curds2.dbapi2_c import _ds, connect, Connection, Cursor, _Executer, ProgrammingError
 
 class ConnectionTestCase(unittest.TestCase):
     
@@ -28,19 +28,19 @@ class ConnectionTestCase(unittest.TestCase):
         self.assertTrue( hasattr( conn, 'cursor') )
         
         # Test we are connected to the DB
-        #dbptr = getattr(conn, '_dbptr')
-        #self.assertNotEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
+        dbptr = getattr(conn, '_dbptr')
+        self.assertNotEqual( _ds._dbquery(dbptr,_ds.dbDATABASE_COUNT), 0 )
         conn.close() 
-        #self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
+        self.assertEqual( _ds._dbquery(dbptr,_ds.dbDATABASE_COUNT), 0 )
 
     def test_connection_context(self):
         """Test for Connection context manager methods"""
 
         with connect(self.dsn) as conn:
             dbptr = getattr(conn, '_dbptr')
-            #self.assertNotEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
+            self.assertNotEqual(  _ds._dbquery(dbptr,_ds.dbDATABASE_COUNT), 0 )
             
-        #self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
+        self.assertEqual(  _ds._dbquery(dbptr,_ds.dbDATABASE_COUNT), 0 )
         
     def test_connection_cursor(self):
         """Test for Connection cursor function"""
@@ -79,9 +79,9 @@ class CursorTestCase(unittest.TestCase):
         # Test we are connected to the DB
         curs = Connection(self.dsn).cursor()
         dbptr = getattr(curs, '_dbptr')
-        #self.assertNotEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
+        self.assertNotEqual(  _ds._dbquery(dbptr,_ds.dbDATABASE_COUNT), 0 )
         curs.close() 
-        #self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
+        self.assertEqual(  _ds._dbquery(dbptr,_ds.dbDATABASE_COUNT), 0 )
         
     def test_cursor_execute(self):
         curs = Connection(self.dsn).cursor()

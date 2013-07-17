@@ -122,7 +122,7 @@ class ExecuterTestCase(unittest.TestCase):
         self.assertEqual(nrecs2, self.NRECS_ORIGIN)
     
     def test_bad_method(self):
-        """Test passing a non-existant Dbptr method"""
+        """Test passing a non-existant module function"""
         self.assertRaises(ProgrammingError, self.curs.execute, 'spam_the_db', [])
 
     def tearDown(self):
