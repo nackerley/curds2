@@ -488,7 +488,7 @@ class Connection(object):
                 self.__setattr__(k, kwargs.pop(k))
         
     def close(self):
-        _ds._dbopen(self._dbptr)
+        _ds._dbclose(self._dbptr)
 
     def __enter__(self):
         """With support"""
