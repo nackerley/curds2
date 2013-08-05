@@ -1,13 +1,13 @@
 #
 # setup.py file for installing
 #
-from numpy.distutils.core import setup, Extension
+from numpy.distutils.core import setup #, Extension
 
 s_args = {'name'         : 'curds2',
-          'version'      : '0.4.0',
+          'version'      : '0.5.0',
           'description'  : 'DBAPI2 compatible module for Datascope',
           'author'       : 'Mark Williams',
-          'url'          : 'https//github.com/markcwill',
+          'url'          : 'https//github.com/NVSeismoLab',
           'packages'     : ['curds2'],
 }
 
