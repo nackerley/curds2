@@ -66,10 +66,6 @@ DATETIME = DBAPITypeObject(dbTIME,dbYEARDAY)
 ROWID    = DBAPITypeObject(dbDBPTR)
 
 Binary    = buffer
-# DBAPI spec  time constructors, prefer obspy.core.utcdatetime.UTCDateTime
-#Date      = datetime.date
-#Time      = datetime.time
-#Timestamp = datetime.datetime
 
 TimestampFromTicks = Timestamp.fromtimestamp
 
@@ -94,6 +90,8 @@ class _Executer(object):
     a convenience that makes sense given the Datascope API
 
     """
+    __slots__ = ['__cursor']
+
     @staticmethod
     def __execute(cursor, operation, *args, **kwargs):
         """
@@ -295,7 +293,7 @@ class Cursor(object):
     
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        fields = [d[0] for d in self.description]
+        fields = self._dbptr.query('dbTABLE_FIELDS')
         row = self._dbptr.getv(*fields)
         if self.CONVERT_NULL:    
             row = tuple([row[n] != null and row[n] or None for n, null in enumerate(self._nullptr.getv(*fields))])

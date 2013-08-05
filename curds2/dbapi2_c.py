@@ -7,8 +7,7 @@ try:
     import collections
 except ImportError:
     pass
-#from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
-#    dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
+
 from antelope import _datascope as _ds
 from copy import copy
 
@@ -68,10 +67,6 @@ DATETIME = DBAPITypeObject(_ds.dbTIME,_ds.dbYEARDAY)
 ROWID    = DBAPITypeObject(_ds.dbDBPTR)
 
 Binary    = buffer
-# DBAPI spec  time constructors, prefer obspy.core.utcdatetime.UTCDateTime
-#Date      = datetime.date
-#Time      = datetime.time
-#Timestamp = datetime.datetime
 
 TimestampFromTicks = Timestamp.fromtimestamp
 
@@ -96,7 +91,8 @@ class _Executer(object):
     a convenience that makes sense given the Datascope API
 
     """
-    
+    __slots__ = ['__cursor']
+
     @staticmethod
     def __execute(cursor, operation, *args, **kwargs):
         """
@@ -304,7 +300,7 @@ class Cursor(object):
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
         tblname = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)
-        fields = [d[0] for d in self.description]
+        fields = _ds._dbquery(self._dbptr, _ds.dbTABLE_FIELDS)
         row = _ds._dbgetv(self._dbptr, tblname, *fields)
         if self.CONVERT_NULL:    
             row = tuple([row[n] != null and row[n] or None for n, null in enumerate(_ds._dbgetv(self._nullptr,tblname, *fields))])
