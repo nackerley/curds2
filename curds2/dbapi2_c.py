@@ -300,7 +300,7 @@ class Cursor(object):
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
         tblname = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)
-        fields = _ds._dbquery(self._dbptr, _ds.dbTABLE_FIELDS)
+        fields = [d[0] for d in self.description]
         row = _ds._dbgetv(self._dbptr, tblname, *fields)
         if self.CONVERT_NULL:    
             row = tuple([row[n] != null and row[n] or None for n, null in enumerate(_ds._dbgetv(self._nullptr,tblname, *fields))])
