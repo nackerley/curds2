@@ -223,16 +223,13 @@ class Cursor(object):
             Tuple = collections.namedtuple('Column', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
         else:
             Tuple = tuple
-        dbptr = self._nullptr
-        used = []
+        dbptr = Dbptr(self._dbptr)
+        table_fields = dbptr.query('dbTABLE_FIELDS')
         description = []
-        for dbptr.field in range(dbptr.query('dbFIELD_COUNT')):
-            # Have to construct hybrid table.field name for some views
-            name = dbptr.query('dbFIELD_NAME')
-            if name in used:
+        for dbptr.field, name in enumerate(table_fields):
+            if name in table_fields[:dbptr.field]:
                 name = '.'.join([dbptr.query('dbFIELD_BASE_TABLE'), name])
-            used.append(name)
-            # and the rest...
+            
             type_code     = dbptr.query('dbFIELD_TYPE')
             display_size  = dbptr.query('dbFORMAT')
             internal_size = dbptr.query('dbFIELD_SIZE')
@@ -293,7 +290,7 @@ class Cursor(object):
     
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        fields = self._dbptr.query('dbTABLE_FIELDS')
+        fields = [d[0] for d in self.description]
         row = self._dbptr.getv(*fields)
         if self.CONVERT_NULL:    
             row = tuple([row[n] != null and row[n] or None for n, null in enumerate(self._nullptr.getv(*fields))])
