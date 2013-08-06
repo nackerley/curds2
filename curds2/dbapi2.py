@@ -338,9 +338,6 @@ class Cursor(object):
         
         Notes
         =====
-        This is a hacky way to get at Datascope functions, originally done
-        through 'callproc', but this should be the main method, so... 
-        
         The Dbptr API already converts basic types, but not everything, 
         the NULL implementatiion is a mess, and times are just floats, so,
         in the future, could check the type and implement the DBAPI types
