@@ -122,7 +122,7 @@ class CursorTestCase(unittest.TestCase):
     def test_executemany(self):
         nrecs0 = self.curs.execute('lookup', {'table':'origin'})
         nrecs1 = self.curs.executemany('join', [('assoc', True), ('arrival', True)])        
-        tables_in_join = self.curs._dbptr.query('dbVIEW_TABLES')
+        tables_in_join = self.curs.execute.query('dbVIEW_TABLES')
         self.assertTrue('origin' in tables_in_join)
         self.assertTrue('assoc' in tables_in_join)
         self.assertTrue('arrival' in tables_in_join)
