@@ -59,7 +59,7 @@ class UTCOrdDictRow(collections.OrderedDict):
     compares to dbTIME to a utcdatetime object.
     """
     def __init__(self, cursor, row):
-        kv = [(d.name, (d.type_code==dbTIME and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
+        kv = [(d.name, (d.type_code==4 and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
 
 
