@@ -288,12 +288,19 @@ class Cursor(object):
         for self._dbptr.record in xrange(self.rowcount):
             yield self._fetch()
     
+    @staticmethod
+    def _convert_null(value, null):
+        if value == null:
+            return None
+        else:
+            return value
+
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
         fields = [d[0] for d in self.description]
         row = self._dbptr.getv(*fields)
         if self.CONVERT_NULL:    
-            row = tuple([row[n] != null and row[n] or None for n, null in enumerate(self._nullptr.getv(*fields))])
+            row = tuple([ self._convert_null(row[n], null) for n, null in enumerate(self._nullptr.getv(*fields)) ])
         if self.row_factory:
             row = self.row_factory(self, row)
         self._dbptr.record += 1
