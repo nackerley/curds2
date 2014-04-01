@@ -7,8 +7,16 @@ try:
     import collections
 except ImportError:
     pass
-from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
-    dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
+# Check ENV if Antelope is not installed via sitecustomize.py
+try:
+    from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
+        dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
+except ImportError:
+    import sys
+    import os
+    sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
+    from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
+        dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
 
 # DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
@@ -60,9 +68,9 @@ class DBAPITypeObject:
             return -1
 
 STRING   = DBAPITypeObject(dbSTRING)
-BINARY   = DBAPITypeObject(dbBOOLEAN) # String or Integer? Dump here.
-NUMBER   = DBAPITypeObject(dbINTEGER,dbREAL)
-DATETIME = DBAPITypeObject(dbTIME,dbYEARDAY)
+BINARY   = DBAPITypeObject(None)
+NUMBER   = DBAPITypeObject(dbINTEGER, dbREAL, dbBOOLEAN, dbTIME, dbYEARDAY)
+DATETIME = DBAPITypeObject(dbTIME, dbYEARDAY)
 ROWID    = DBAPITypeObject(dbDBPTR)
 
 Binary    = buffer

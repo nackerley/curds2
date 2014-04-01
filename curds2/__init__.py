@@ -10,5 +10,5 @@ Contains the API and several row factories
 __version__ = '0.5.2'
 
 from dbapi2 import *
-from rows import NamedTupleRow, OrderedDictRow, UTCOrdDictRow
+from rows import NamedTupleRow, OrderedDictRow, UTCOrdDictRow, SQLValuesRow
 
