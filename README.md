@@ -56,6 +56,7 @@ This module supports row factory classes similar to those of the sqlite3 (among 
 Raw Interface
 -------------
 An implementation of the module using only the 'raw' interface C-library wrapper is available, called `dbapi2_c`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes the full function name:
+
 ```python
 >>> from curds2.dbapi_c import connect
 >>> curs = connect('demo').cursor()
@@ -65,7 +66,6 @@ An implementation of the module using only the 'raw' interface C-library wrapper
 
 # Example of useful application
 >>> nrecs = curs.execute('dbprocess', (['dbopen origin', 'dbjoin assoc', 'dbjoin arrival'],) )
-
 ```
 
 Contact
