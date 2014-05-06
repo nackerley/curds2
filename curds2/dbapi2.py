@@ -1,8 +1,8 @@
 #
 # dbapi2 module for Datascope
 #
+import datetime
 from exceptions import StandardError
-from datetime import date as Date, time as Time, datetime as Timestamp
 try:
     import collections
 except ImportError:
@@ -14,7 +14,7 @@ try:
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
+    sys.path.append(os.path.join(os.environ['ANTELOPE'],'data','python'))
     from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
         dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
 
@@ -75,6 +75,9 @@ ROWID    = DBAPITypeObject(dbDBPTR)
 
 Binary    = buffer
 
+Date = datetime.date
+Time = datetime.time
+Timestamp = datetime.datetime
 TimestampFromTicks = Timestamp.fromtimestamp
 
 def DateFromTicks(ticks):
@@ -115,6 +118,8 @@ class _Executer(object):
         
         # Return depends on result
         if isinstance(result, Dbptr):
+            if dbINVALID in result:
+                raise DatabaseError("Invalid value in pointer: {0}".format(result))
             cursor._dbptr = result
             return cursor.rowcount
         else:
@@ -149,6 +154,11 @@ class _Executer(object):
         else:
             result = self.__execute(self.__cursor, operation, *params)
         return result
+
+    
+class Row(object):    
+    def __new__(cls, cursor, row):
+        return tuple(*row)
 
 
 # DBAPI Classes
@@ -200,7 +210,7 @@ class Cursor(object):
     
     # CUSTOM
     CONVERT_NULL = False    # Convert NULL values to python None
-    row_factory  = None     # Use this to build rows (default is tuple)
+    row_factory  = Row     # Use this to build rows (default is tuple)
 
     @property
     def _nullptr(self):
@@ -308,11 +318,9 @@ class Cursor(object):
         fields = [d[0] for d in self.description]
         row = self._dbptr.getv(*fields)
         if self.CONVERT_NULL:    
-            row = tuple([ self._convert_null(row[n], null) for n, null in enumerate(self._nullptr.getv(*fields)) ])
-        if self.row_factory:
-            row = self.row_factory(self, row)
+            row = [self._convert_null(row[n], null) for n, null in enumerate(self._nullptr.getv(*fields))]
         self._dbptr.record += 1
-        return row
+        return self.row_factory(self, row)
 
     def close(self):
         """Close database connection"""
@@ -450,7 +458,7 @@ class Cursor(object):
         if 0 <= recnum < self.rowcount:
             self._dbptr.record = recnum
         else:
-            raise IndexError("Produces an index out of range")
+            raise IndexError("Produces an index out of range: %d of %d rows" % (recnum, self.rowcount))
          
 
 class Connection(object):
@@ -509,7 +517,8 @@ class Connection(object):
         
         """
         return self.cursor_factory(self._dbptr, connection=self, **kwargs)
-        
+
+
 def connect(dsn=':memory:', perm='r', **kwargs):
     """
     Return a Connection object to a Datascope database
