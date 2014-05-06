@@ -1,8 +1,12 @@
 #
-# dbapi2 module for Datascope
-#
+"""
+curds2.dbapi2 module
+
+python DBAPI2-compatible Datascope functionality
+"""
+import exceptions
 import datetime
-from exceptions import StandardError
+import logging
 try:
     import collections
 except ImportError:
@@ -18,15 +22,22 @@ except ImportError:
     from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
         dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
 
+LOG = logging.getLogger(__name__)
+try:
+    LOG.addHandler(logging.NullHandler())
+except:
+    logging.raiseExceptions = False
+
 # DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
 threadsafety = 0          # Playing it safe (datascope??)
 paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
 # DBAPI standard exceptions
-class Error(StandardError): pass
+class Error(exceptions.StandardError):
+    pass
 
-class Warning(StandardError):
+class Warning(exceptions.StandardError):
     pass
 
 class InterfaceError(Error):
@@ -158,7 +169,7 @@ class _Executer(object):
     
 class Row(object):    
     def __new__(cls, cursor, row):
-        return tuple(*row)
+        return tuple(row)
 
 
 # DBAPI Classes
@@ -262,7 +273,7 @@ class Cursor(object):
     @property
     def rowcount(self):
         if self._dbptr.table >= 0:
-            return self._dbptr.nrecs()
+            return self._dbptr.query('dbRECORD_COUNT')
         else:
             return -1
 
@@ -290,16 +301,11 @@ class Cursor(object):
                 self.__setattr__(k, kwargs.pop(k))
         
         # inherit row_factory from Connection if not set on creation
-        if self.row_factory is None and self.connection is not None:
-            self.row_factory = self.connection.row_factory
-        if self.CONVERT_NULL is False and self.connection is not None:
-            self.CONVERT_NULL = self.connection.CONVERT_NULL
-
-        # pass anything else to dblookup
-        try:
-            self._dbptr = self._dbptr.lookup(**kwargs)
-        except Exception as err:
-            pass
+        if self.connection:
+            if self.connection.row_factory:
+                self.row_factory = self.connection.row_factory
+            if self.connection.CONVERT_NULL:
+                self.CONVERT_NULL = self.connection.CONVERT_NULL
     
     def __iter__(self):
         """Generator, yields a row from 0 to rowcount"""
@@ -383,19 +389,14 @@ class Cursor(object):
         -------
         tuple or row_factory-generated row
 
-        If CONVERT_NULL is True, any value equal to its NULL value
-        will be a python None.
-        
         Notes
         -----
         If the 'dbALL' record is there, just start at first one
         also, rollover to 0 if at the end
         
         """
-        if self.rownumber == dbALL or self.rownumber == self.rowcount:
-            self._dbptr.record = 0
         if not 0 <= self.rownumber < self.rowcount:
-            raise ProgrammingError("Not a valid record number: "+ str(self.rownumber))
+            self._dbptr.record = 0
         return self._fetch()
 
     def fetchmany(self, size=None):
