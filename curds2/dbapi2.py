@@ -119,11 +119,8 @@ class _Executer(object):
         """
         Based on original execute function
         """
-        # Check it exists
         if not hasattr(cursor._dbptr, operation):
             raise ProgrammingError("No such command available: " + operation)
-        
-        # Get method fxn    
         proc = getattr(cursor._dbptr, operation)
         result = proc(*args, **kwargs) 
         

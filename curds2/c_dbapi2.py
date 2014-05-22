@@ -1,8 +1,9 @@
 #
 # dbapi2 module for Datascope
 #
+import datetime
+import logging
 from exceptions import StandardError
-from datetime import date as Date, time as Time, datetime as Timestamp
 from copy import copy
 try:
     import collections
@@ -18,6 +19,11 @@ except ImportError:
     sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
     from antelope import _datascope as _ds
 
+LOG = logging.getLogger(__name__)
+try:
+    LOG.addHandler(logging.NullHandler())
+except:
+    logging.raiseExceptions = False
 
 # DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
@@ -25,7 +31,8 @@ threadsafety = 0          # Playing it safe (datascope??)
 paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
 # DBAPI standard exceptions
-class Error(StandardError): pass
+class Error(StandardError): 
+    pass
 
 class Warning(StandardError):
     pass
@@ -69,13 +76,16 @@ class DBAPITypeObject:
             return -1
 
 STRING   = DBAPITypeObject(_ds.dbSTRING)
-BINARY   = DBAPITypeObject(_ds.dbBOOLEAN) # String or Integer? Dump here.
-NUMBER   = DBAPITypeObject(_ds.dbINTEGER,_ds.dbREAL)
-DATETIME = DBAPITypeObject(_ds.dbTIME,_ds.dbYEARDAY)
+BINARY   = DBAPITypeObject(None)
+NUMBER   = DBAPITypeObject(_ds.dbINTEGER, _ds.dbREAL, _ds.dbBOOLEAN, _ds.dbTIME, _ds.dbYEARDAY)
+DATETIME = DBAPITypeObject(_ds.dbTIME, _ds.dbYEARDAY)
 ROWID    = DBAPITypeObject(_ds.dbDBPTR)
 
 Binary    = buffer
 
+Date = datetime.date
+Time = datetime.time
+Timestamp = datetime.datetime
 TimestampFromTicks = Timestamp.fromtimestamp
 
 def DateFromTicks(ticks):
@@ -85,6 +95,13 @@ def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
 #----------------------------------------------------------------------------#
+
+def _dbptr(value):
+    """Map cursor to dbptr"""
+    if hasattr(value, '_dbptr'):
+        return value._dbptr
+    return value
+
 
 class _Executer(object):
     """
@@ -100,23 +117,25 @@ class _Executer(object):
 
     """
     __slots__ = ['__cursor']
+    
 
     @staticmethod
-    def __execute(cursor, operation, *args, **kwargs):
+    def __execute(cursor, operation, *args):
         """
         Based on original execute function
         """
-        # Check it exists
         fxn = '_' + operation
+        args = [_dbptr(a) for a in args]
+        # Call if exists
         if not hasattr(_ds, fxn):
             raise ProgrammingError("No such command available: " + fxn)
-        
-        # Get method fxn    
         proc = getattr(_ds, fxn)
-        result = proc(cursor._dbptr, *args, **kwargs) 
+        result = proc(cursor._dbptr, *args) 
         
         # Return depends on result
         if isinstance(result, list) and len(result) == 4:
+            if _ds.dbINVALID in result:
+                raise DatabaseError("Invalid value in pointer: {0}".format(result))
             cursor._dbptr = result
             return cursor.rowcount
         else:
@@ -151,6 +170,11 @@ class _Executer(object):
         else:
             result = self.__execute(self.__cursor, operation, *params)
         return result
+
+
+class Row(object):
+    def __new__(cls, cursor, row):
+        return tuple(row)
 
 
 # DBAPI Classes
@@ -212,7 +236,7 @@ class Cursor(object):
     
     # CUSTOM
     CONVERT_NULL = False    # Convert NULL values to python None
-    row_factory  = None     # Use this to build rows (default is tuple)
+    row_factory  = Row      # Use this to build rows (default is tuple)
 
     @property
     def _nullptr(self):
@@ -244,15 +268,11 @@ class Cursor(object):
         else:
             Tuple = tuple
         dbptr = self._nullptr
-        used = []
+        table_fields = _ds._dbquery(dbptr, 'dbTABLE_FIELDS')
         description = []
-        for dbptr[2] in range(_ds._dbquery(dbptr, _ds.dbFIELD_COUNT)):
-            # Have to construct hybrid table.field name for some views
-            name = _ds._dbquery(dbptr, _ds.dbFIELD_NAME)
-            if name in used:
+        for dbptr[2], name in enumerate(table_fields):
+            if name in table_fields[:dbptr[2]]:
                 name = '.'.join([_ds._dbquery(dbptr, _ds.dbFIELD_BASE_TABLE), name])
-            used.append(name)
-            # and the rest...
             type_code     = _ds._dbquery(dbptr, _ds.dbFIELD_TYPE)
             display_size  = _ds._dbquery(dbptr, _ds.dbFORMAT)
             internal_size = _ds._dbquery(dbptr, _ds.dbFIELD_SIZE)
@@ -266,14 +286,14 @@ class Cursor(object):
 
     @property
     def rowcount(self):
-        if self._dbptr[1] >= 0:
+        if self._table >= 0:
             return _ds._dbquery(self._dbptr, _ds.dbRECORD_COUNT)
         else:
             return -1
 
     @property
     def rownumber(self):
-        return self._dbptr[3]
+        return self._record
     
     #--- Methods ------------------------------------------------------#
     def __init__(self, dbptr, **kwargs):
@@ -295,27 +315,32 @@ class Cursor(object):
                 self.__setattr__(k, kwargs.pop(k))
         
         # inherit row_factory from Connection if not set on creation
-        if self.row_factory is None and self.connection is not None:
-            self.row_factory = self.connection.row_factory
-        if self.CONVERT_NULL is False and self.connection is not None:
-            self.CONVERT_NULL = self.connection.CONVERT_NULL
+        if self.connection:
+            if self.connection.row_factory:
+                self.row_factory = self.connection.row_factory
+            if self.connection.CONVERT_NULL:
+                self.CONVERT_NULL = self.connection.CONVERT_NULL
 
     def __iter__(self):
         """Generator, yields a row from 0 to rowcount"""
         for self._record in xrange(self.rowcount):
             yield self._fetch()
     
+    @staticmethod
+    def _convert_null(value, null):
+        if value == null:
+            return None
+        return value
+
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        tblname = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)
+        tblname = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)  # TODO: check view compat
         fields = [d[0] for d in self.description]
         row = _ds._dbgetv(self._dbptr, tblname, *fields)
         if self.CONVERT_NULL:    
-            row = tuple([row[n] != null and row[n] or None for n, null in enumerate(_ds._dbgetv(self._nullptr,tblname, *fields))])
-        if self.row_factory:
-            row = self.row_factory(self, row)
+            row = [self._convert_null(row[n], null) for n, null in enumerate(_ds._dbgetv(self._nullptr, tblname, *fields))]
         self._record += 1
-        return row
+        return self.row_factory(self, row)
 
     def close(self):
         """Close database connection"""
@@ -390,10 +415,8 @@ class Cursor(object):
         also, rollover to 0 if at the end
         
         """
-        if self.rownumber == _ds.dbALL or self.rownumber == self.rowcount:
-            self._record = 0
         if not 0 <= self.rownumber < self.rowcount:
-            raise ProgrammingError("Not a valid record number: "+ str(self.rownumber))
+            self._record = 0
         return self._fetch()
 
     def fetchmany(self, size=None):
