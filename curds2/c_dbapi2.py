@@ -236,6 +236,7 @@ class Cursor(object):
     
     # CUSTOM
     CONVERT_NULL = False    # Convert NULL values to python None
+    CONVERT_DATETIME = False
     row_factory  = Row      # Use this to build rows (default is tuple)
 
     @property
@@ -295,7 +296,6 @@ class Cursor(object):
     def rownumber(self):
         return self._record
     
-    #--- Methods ------------------------------------------------------#
     def __init__(self, dbptr, **kwargs):
         """
         Make a Cursor from a Dbptr
@@ -309,12 +309,13 @@ class Cursor(object):
         
         """
         self._dbptr = copy(dbptr)
+        
         # Attributes
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
         
-        # inherit row_factory from Connection if not set on creation
+        # Inherit row_factory from Connection if not set on creation
         if self.connection:
             if self.connection.row_factory:
                 self.row_factory = self.connection.row_factory
@@ -332,13 +333,22 @@ class Cursor(object):
             return None
         return value
 
+    @staticmethod
+    def _convert_dt(value, type_code):
+        if type_code == DATETIME and value is not None and isinstance(value, float):
+            return TimestampFromTicks(value)
+        return value
+
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        tblname = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)  # TODO: check view compat
-        fields = [d[0] for d in self.description]
-        row = _ds._dbgetv(self._dbptr, tblname, *fields)
+        tbl = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)  # TODO: check view compat
+        desc = self.description
+        fields = [d[0] for d in desc]
+        row = _ds._dbgetv(self._dbptr, tbl, *fields)
         if self.CONVERT_NULL:    
-            row = [self._convert_null(row[n], null) for n, null in enumerate(_ds._dbgetv(self._nullptr, tblname, *fields))]
+            row = [self._convert_null(row[n], null) for n, null in enumerate(_ds._dbgetv(self._nullptr, tbl, *fields))]
+        if self.CONVERT_DATETIME:
+            row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
         self._record += 1
         return self.row_factory(self, row)
 

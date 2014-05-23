@@ -17,14 +17,11 @@ import collections
 
 class NamedTupleRow(object):
     """
-    A row_factory function for nice fast namedtuple rows
+    A row_factory function for namedtuple rows
     
     Notes
     -----
-    EXCEPT IT DOESN'T WORK WITH VIEWS due to Datascope 'dot' table.field View
-    syntax!!
-    
-    To fix this, periods are replaced with underscores, which is better, but
+    Periods in named are replaced with underscores, which is better, but
     for programs that access the fields by named attribute, a little more
     esoteric...
 
@@ -38,13 +35,28 @@ class OrderedDictRow(collections.OrderedDict):
     """
     A row_factory function to make OrderedDict rows from row tuple
     
-    Not as fast, but supports getitem syntax and the 'get' function, and can
+    Notes
+    -----
+    Supports iteration, getitem syntax and the 'get' function, and can
     access duplicate-named fields in views with the dot-syntax names
     """
     # Have to build key/value tuple pairs...
     def __init__(self, cursor, row):
         super(OrderedDictRow,self).__init__([(d.name, row[n]) for n, d in enumerate(cursor.description)])
-        
+
+
+
+#######################################################################
+# DEPRICATED
+#######################################################################
+#
+# These rows are depricated due to redundant functionality or their 
+# availability elsewhere. SQL row may get promoted back, but the
+# UTCOrdDictRow can now be constructed with an OrderedDictRow and
+# the CONVERT_DATETIME cursor option by monkey-patching the
+# TimestampFromTicks function, for example. Right now SQLValues can
+# be found in the nsl.commons python module as a custom Row.
+#
 try:
     from obspy.core.utcdatetime import UTCDateTime
 except ImportError:

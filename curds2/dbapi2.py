@@ -186,15 +186,16 @@ class Cursor(object):
     Additional attributes
     ---------------------
     CONVERT_NULL : bool of whether to try and change Nulls to None
+    CONVERT_DATETIME : bool of whether to convert timestamps to datetimes
     row_factory  : function handle to build more complex rows
     
     Methods (DBAPI standard)
     -------
     close() : Close the connection
     execute(operation, params=[]) : Call Dbptr method
-    executemany(operation, param_seq=[]) : Execute same operation multiple times
+    executemany(operation, param_seq=[]) : Execute operation multiple times
     fetchone() : Get record of current pointer
-    fetchmany(size=cursor.arraysize) : Get multiple records from current pointer on
+    fetchmany(size=cursor.arraysize) : Get multiple records
     fetchall() : Get all records from current pointer to end
     
     Extension methods
@@ -208,28 +209,28 @@ class Cursor(object):
     """
     #--- Attributes ---------------------------------------------------#
     # PRIVATE
-    _dbptr = None           # cursor pointer
+    _dbptr = None             # cursor pointer
     
     # DBAPI
-    arraysize = 1           # Step size for fetch
+    arraysize = 1             # Step size for fetch
     
     # EXTENSIONS
-    connection = None       # Parent Connection
+    connection = None         # Parent Connection
     
     # CUSTOM
-    CONVERT_NULL = False    # Convert NULL values to python None
-    row_factory  = Row     # Use this to build rows (default is tuple)
+    CONVERT_NULL = False      # Convert NULL values to python None
+    CONVERT_DATETIME = False  # Convert float datetimes w/ TimestampFromTicks
+    row_factory  = Row        # Use this to build rows (default is tuple)
 
     @property
     def _nullptr(self):
         """
         Return current pointer's NULL record
-        
         """
         null = Dbptr(self._dbptr)
         null.record = dbNULL
         return null
-
+    
     @property
     def description(self):
         """
@@ -255,14 +256,12 @@ class Cursor(object):
         for dbptr.field, name in enumerate(table_fields):
             if name in table_fields[:dbptr.field]:
                 name = '.'.join([dbptr.query('dbFIELD_BASE_TABLE'), name])
-            
             type_code     = dbptr.query('dbFIELD_TYPE')
             display_size  = dbptr.query('dbFORMAT')
             internal_size = dbptr.query('dbFIELD_SIZE')
             precision     = dbptr.query('dbFIELD_FORMAT')
             scale         = None
             null_ok       = name not in dbptr.query('dbPRIMARY_KEY')
-            
             dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
             description.append(dtup)
         return description
@@ -278,7 +277,6 @@ class Cursor(object):
     def rownumber(self):
         return self._dbptr.record
     
-    #--- Methods ------------------------------------------------------#
     def __init__(self, dbptr, **kwargs):
         """
         Make a Cursor from a Dbptr
@@ -292,12 +290,13 @@ class Cursor(object):
         
         """
         self._dbptr = Dbptr(dbptr)
+        
         # Attributes
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
         
-        # inherit row_factory from Connection if not set on creation
+        # Inherit row_factory from Connection if not set on creation
         if self.connection:
             if self.connection.row_factory:
                 self.row_factory = self.connection.row_factory
@@ -313,18 +312,26 @@ class Cursor(object):
     def _convert_null(value, null):
         if value == null:
             return None
-        else:
-            return value
+        return value
+    
+    @staticmethod
+    def _convert_dt(value, type_code):
+        if type_code == DATETIME and value is not None and isinstance(value, float):
+            return TimestampFromTicks(value)
+        return value
 
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        fields = [d[0] for d in self.description]
+        desc = self.description
+        fields = [d[0] for d in desc]
         row = self._dbptr.getv(*fields)
         if self.CONVERT_NULL:    
             row = [self._convert_null(row[n], null) for n, null in enumerate(self._nullptr.getv(*fields))]
+        if self.CONVERT_DATETIME:
+            row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
         self._dbptr.record += 1
         return self.row_factory(self, row)
-
+    
     def close(self):
         """Close database connection"""
         self._dbptr.close()
@@ -528,5 +535,3 @@ def connect(dsn=':memory:', perm='r', **kwargs):
         
     """
     return Connection(dsn, perm=perm, **kwargs)
-
-
