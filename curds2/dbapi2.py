@@ -1,8 +1,12 @@
 #
-# dbapi2 module for Datascope
-#
-from exceptions import StandardError
-from datetime import date as Date, time as Time, datetime as Timestamp
+"""
+curds2.dbapi2 module
+
+python DBAPI2-compatible Datascope functionality
+"""
+import exceptions
+import datetime
+import logging
 try:
     import collections
 except ImportError:
@@ -14,9 +18,15 @@ try:
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
+    sys.path.append(os.path.join(os.environ['ANTELOPE'],'data','python'))
     from antelope.datascope import (Dbptr, dbtmp, dbALL, dbNULL, dbINVALID,
         dbBOOLEAN, dbDBPTR, dbINTEGER, dbREAL, dbTIME, dbYEARDAY, dbSTRING)
+
+LOG = logging.getLogger(__name__)
+try:
+    LOG.addHandler(logging.NullHandler())
+except:
+    logging.raiseExceptions = False
 
 # DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
@@ -24,9 +34,10 @@ threadsafety = 0          # Playing it safe (datascope??)
 paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
 # DBAPI standard exceptions
-class Error(StandardError): pass
+class Error(exceptions.StandardError):
+    pass
 
-class Warning(StandardError):
+class Warning(exceptions.StandardError):
     pass
 
 class InterfaceError(Error):
@@ -75,6 +86,9 @@ ROWID    = DBAPITypeObject(dbDBPTR)
 
 Binary    = buffer
 
+Date = datetime.date
+Time = datetime.time
+Timestamp = datetime.datetime
 TimestampFromTicks = Timestamp.fromtimestamp
 
 def DateFromTicks(ticks):
@@ -83,8 +97,8 @@ def DateFromTicks(ticks):
 def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
+# Utility Classes
 #----------------------------------------------------------------------------#
-
 class _Executer(object):
     """
     Executes commands as a function or attribute
@@ -105,16 +119,15 @@ class _Executer(object):
         """
         Based on original execute function
         """
-        # Check it exists
         if not hasattr(cursor._dbptr, operation):
             raise ProgrammingError("No such command available: " + operation)
-        
-        # Get method fxn    
         proc = getattr(cursor._dbptr, operation)
         result = proc(*args, **kwargs) 
         
         # Return depends on result
         if isinstance(result, Dbptr):
+            if dbINVALID in result:
+                raise DatabaseError("Invalid value in pointer: {0}".format(result))
             cursor._dbptr = result
             return cursor.rowcount
         else:
@@ -150,6 +163,11 @@ class _Executer(object):
             result = self.__execute(self.__cursor, operation, *params)
         return result
 
+    
+class Row(object):    
+    def __new__(cls, cursor, row):
+        return tuple(row)
+
 
 # DBAPI Classes
 #----------------------------------------------------------------------------#
@@ -168,15 +186,16 @@ class Cursor(object):
     Additional attributes
     ---------------------
     CONVERT_NULL : bool of whether to try and change Nulls to None
+    CONVERT_DATETIME : bool of whether to convert timestamps to datetimes
     row_factory  : function handle to build more complex rows
     
     Methods (DBAPI standard)
     -------
     close() : Close the connection
     execute(operation, params=[]) : Call Dbptr method
-    executemany(operation, param_seq=[]) : Execute same operation multiple times
+    executemany(operation, param_seq=[]) : Execute operation multiple times
     fetchone() : Get record of current pointer
-    fetchmany(size=cursor.arraysize) : Get multiple records from current pointer on
+    fetchmany(size=cursor.arraysize) : Get multiple records
     fetchall() : Get all records from current pointer to end
     
     Extension methods
@@ -190,28 +209,28 @@ class Cursor(object):
     """
     #--- Attributes ---------------------------------------------------#
     # PRIVATE
-    _dbptr = None           # cursor pointer
+    _dbptr = None             # cursor pointer
     
     # DBAPI
-    arraysize = 1           # Step size for fetch
+    arraysize = 1             # Step size for fetch
     
     # EXTENSIONS
-    connection = None       # Parent Connection
+    connection = None         # Parent Connection
     
     # CUSTOM
-    CONVERT_NULL = False    # Convert NULL values to python None
-    row_factory  = None     # Use this to build rows (default is tuple)
+    CONVERT_NULL = False      # Convert NULL values to python None
+    CONVERT_DATETIME = False  # Convert float datetimes w/ TimestampFromTicks
+    row_factory  = Row        # Use this to build rows (default is tuple)
 
     @property
     def _nullptr(self):
         """
         Return current pointer's NULL record
-        
         """
         null = Dbptr(self._dbptr)
         null.record = dbNULL
         return null
-
+    
     @property
     def description(self):
         """
@@ -237,14 +256,12 @@ class Cursor(object):
         for dbptr.field, name in enumerate(table_fields):
             if name in table_fields[:dbptr.field]:
                 name = '.'.join([dbptr.query('dbFIELD_BASE_TABLE'), name])
-            
             type_code     = dbptr.query('dbFIELD_TYPE')
             display_size  = dbptr.query('dbFORMAT')
             internal_size = dbptr.query('dbFIELD_SIZE')
             precision     = dbptr.query('dbFIELD_FORMAT')
             scale         = None
             null_ok       = name not in dbptr.query('dbPRIMARY_KEY')
-            
             dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
             description.append(dtup)
         return description
@@ -252,7 +269,7 @@ class Cursor(object):
     @property
     def rowcount(self):
         if self._dbptr.table >= 0:
-            return self._dbptr.nrecs()
+            return self._dbptr.query('dbRECORD_COUNT')
         else:
             return -1
 
@@ -260,7 +277,6 @@ class Cursor(object):
     def rownumber(self):
         return self._dbptr.record
     
-    #--- Methods ------------------------------------------------------#
     def __init__(self, dbptr, **kwargs):
         """
         Make a Cursor from a Dbptr
@@ -274,22 +290,23 @@ class Cursor(object):
         
         """
         self._dbptr = Dbptr(dbptr)
-        # Attributes
-        for k in kwargs.keys():
-            if hasattr(self, k):
-                self.__setattr__(k, kwargs.pop(k))
         
-        # inherit row_factory from Connection if not set on creation
-        if self.row_factory is None and self.connection is not None:
-            self.row_factory = self.connection.row_factory
-        if self.CONVERT_NULL is False and self.connection is not None:
-            self.CONVERT_NULL = self.connection.CONVERT_NULL
+        if 'connection' in kwargs:
+            self.connection = kwargs.pop('connection')
 
-        # pass anything else to dblookup
-        try:
-            self._dbptr = self._dbptr.lookup(**kwargs)
-        except Exception as err:
-            pass
+        # Inherit settings from Connection if exists
+        if self.connection:
+            if self.connection.row_factory:
+                self.row_factory = self.connection.row_factory
+            if self.connection.CONVERT_NULL:
+                self.CONVERT_NULL = self.connection.CONVERT_NULL
+            if self.connection.CONVERT_DATETIME:
+                self.CONVERT_DATETIME = self.connection.CONVERT_DATETIME
+        
+        # Attributes
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                self.__setattr__(k, v)
     
     def __iter__(self):
         """Generator, yields a row from 0 to rowcount"""
@@ -300,20 +317,26 @@ class Cursor(object):
     def _convert_null(value, null):
         if value == null:
             return None
-        else:
-            return value
+        return value
+    
+    @staticmethod
+    def _convert_dt(value, type_code):
+        if type_code == DATETIME and value is not None and isinstance(value, float):
+            return TimestampFromTicks(value)
+        return value
 
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        fields = [d[0] for d in self.description]
+        desc = self.description
+        fields = [d[0] for d in desc]
         row = self._dbptr.getv(*fields)
         if self.CONVERT_NULL:    
-            row = tuple([ self._convert_null(row[n], null) for n, null in enumerate(self._nullptr.getv(*fields)) ])
-        if self.row_factory:
-            row = self.row_factory(self, row)
+            row = [self._convert_null(row[n], null) for n, null in enumerate(self._nullptr.getv(*fields))]
+        if self.CONVERT_DATETIME:
+            row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
         self._dbptr.record += 1
-        return row
-
+        return self.row_factory(self, row)
+    
     def close(self):
         """Close database connection"""
         self._dbptr.close()
@@ -375,19 +398,14 @@ class Cursor(object):
         -------
         tuple or row_factory-generated row
 
-        If CONVERT_NULL is True, any value equal to its NULL value
-        will be a python None.
-        
         Notes
         -----
         If the 'dbALL' record is there, just start at first one
         also, rollover to 0 if at the end
         
         """
-        if self.rownumber == dbALL or self.rownumber == self.rowcount:
-            self._dbptr.record = 0
         if not 0 <= self.rownumber < self.rowcount:
-            raise ProgrammingError("Not a valid record number: "+ str(self.rownumber))
+            self._dbptr.record = 0
         return self._fetch()
 
     def fetchmany(self, size=None):
@@ -450,19 +468,19 @@ class Cursor(object):
         if 0 <= recnum < self.rowcount:
             self._dbptr.record = recnum
         else:
-            raise IndexError("Produces an index out of range")
+            raise IndexError("Produces an index out of range: %d of %d rows" % (recnum, self.rowcount))
          
 
 class Connection(object):
     """
     DBAPI compatible Connection type for Datascope
-    
     """
     _dbptr = None
     
     cursor_factory = Cursor
     row_factory  = None
     CONVERT_NULL = False
+    CONVERT_DATETIME = False
 
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
@@ -509,7 +527,8 @@ class Connection(object):
         
         """
         return self.cursor_factory(self._dbptr, connection=self, **kwargs)
-        
+
+
 def connect(dsn=':memory:', perm='r', **kwargs):
     """
     Return a Connection object to a Datascope database
@@ -521,5 +540,3 @@ def connect(dsn=':memory:', perm='r', **kwargs):
         
     """
     return Connection(dsn, perm=perm, **kwargs)
-
-
