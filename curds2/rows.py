@@ -124,11 +124,10 @@ class SQLValuesRow(_SQLValues):
                  from a custom sequence.
     
     """
-
     def __new__(cls, cursor, row):
         Tuple = collections.namedtuple(cls.__name__, [d.name.replace('.','_') for d in cursor.description])
         class_ = type(cls.__name__, (_SQLValues, Tuple,), {})
-        return class_( *super(SQLValuesRow, cls)._values(row) )
+        return class_(*super(SQLValuesRow, cls)._values(row))
 
 #
 #---------------------------------------------------------------------#

@@ -49,15 +49,14 @@ Custom Cursors are allowed by passing the class to the `cursor_factory` attribut
 This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has several pre-defined row factory classes:
 * NamedTupleRow - Rows of python namedtuples with attribute-style access to each item.
 * OrderedDictRow - Rows of python OrderedDict instances.
-* UTCOrdDictRow - Identical to OrderedDictRow, with any field comparing to 'dbTIME' converted to an ObsPy UTCDateTime object.
-* SQLValuesRow - A namedtuple row of values converted to SQL strings, contains methods to generate SQL statement parts.
 
 
 Raw Interface
 -------------
-An implementation of the module using only the 'raw' interface C-library wrapper is available, called `dbapi2_c`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes the full function name:
+An implementation of the module using only the 'raw' interface C-library wrapper is available, called `c_dbapi2`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes the full function name:
+
 ```python
->>> from curds2.dbapi_c import connect
+>>> from curds2.c_dbapi2 import connect
 >>> curs = connect('demo').cursor()
 
 # Closer to C usage
@@ -65,7 +64,6 @@ An implementation of the module using only the 'raw' interface C-library wrapper
 
 # Example of useful application
 >>> nrecs = curs.execute('dbprocess', (['dbopen origin', 'dbjoin assoc', 'dbjoin arrival'],) )
-
 ```
 
 Contact
@@ -73,17 +71,10 @@ Contact
 
 Copyright 2013 Mark Williams at [Nevada Seismological Laboratory](http://www.seismo.unr.edu/Faculty/29)
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 

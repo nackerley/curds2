@@ -3,13 +3,21 @@
 #
 from exceptions import StandardError
 from datetime import date as Date, time as Time, datetime as Timestamp
+from copy import copy
 try:
     import collections
 except ImportError:
     pass
 
-from antelope import _datascope as _ds
-from copy import copy
+# Check ENV if Antelope is not installed via sitecustomize.py
+try:
+    from antelope import _datascope as _ds
+except ImportError:
+    import sys
+    import os
+    sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
+    from antelope import _datascope as _ds
+
 
 # DBAPI top level attributes
 apilevel     = "2.0"      # 1.0 or 2.0
