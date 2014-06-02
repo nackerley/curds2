@@ -4,6 +4,7 @@ service curds2 requests
 """
 import curds2.c_dbapi2 as dbapi2
 
+
 class Service(object):
     """
     Run a curds2 query as a service
@@ -35,3 +36,13 @@ class Service(object):
         if not hasattr(self, method):
             raise AttributeError("No such method: {0}".format(method))    
         return getattr(self, method)(args)
+
+
+
+#--- Break out to flaskapp
+from flask import Flask
+#from curds2.ws.service import Service
+
+
+#--- Break out to main?
+import gevent

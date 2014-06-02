@@ -4,97 +4,31 @@ curds2.c_dbapi2 module for Datascope
 
 Uses the base python wrappers
 """
-import exceptions
-import datetime
-import logging
 from copy import copy
 try:
     import collections
 except ImportError:
     pass
-# Check ENV if Antelope is not installed via sitecustomize.py
+
+from curds2.api.core import *
+from curds2.api.base import BaseConnection, BaseCursor, BaseExecuter
+
+# Antelope/Datascope
+#----------------------------------------------------------------------------#
 try:
-    from antelope import _datascope as _ds
+    from antelope import _datascope as ds
 except ImportError:
     import sys
     import os
     sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
-    from antelope import _datascope as _ds
+    from antelope import _datascope as ds
 
-LOG = logging.getLogger(__name__)
-try:
-    LOG.addHandler(logging.NullHandler())
-except:
-    logging.raiseExceptions = False
-
-# DBAPI top level attributes
-apilevel     = "2.0"      # 1.0 or 2.0
-threadsafety = 0          # Playing it safe (datascope??)
-paramstyle   = "format"   # N/A right now, execute uses Dbptr API
-
-# DBAPI standard exceptions
-class Error(exceptions.StandardError): 
-    pass
-
-class Warning(exceptions.StandardError):
-    pass
-
-class InterfaceError(Error):
-    pass
-
-class DatabaseError(Error):
-    pass
-
-class InternalError(DatabaseError):
-    pass
-
-class OperationalError(DatabaseError):
-    pass
-
-class ProgrammingError(DatabaseError):
-    pass
-
-class IntegrityError(DatabaseError):
-    pass
-
-class DataError(DatabaseError):
-    pass
-
-class NotSupportedError(DatabaseError):
-    pass
-
-# DBAPI Type Objects / Functions
-#----------------------------------------------------------------------------#
-class DBAPITypeObject:
-    def __init__(self,*values):
-        self.values = values
-    
-    def __cmp__(self,other):
-        if other in self.values:
-            return 0
-        if other < self.values:
-            return 1
-        else:
-            return -1
-
-STRING   = DBAPITypeObject(_ds.dbSTRING)
+STRING   = DBAPITypeObject(ds.dbSTRING)
 BINARY   = DBAPITypeObject(None)
-NUMBER   = DBAPITypeObject(_ds.dbINTEGER, _ds.dbREAL, _ds.dbBOOLEAN, _ds.dbTIME, _ds.dbYEARDAY)
-DATETIME = DBAPITypeObject(_ds.dbTIME, _ds.dbYEARDAY)
-ROWID    = DBAPITypeObject(_ds.dbDBPTR)
+NUMBER   = DBAPITypeObject(ds.dbINTEGER, ds.dbREAL, ds.dbBOOLEAN, ds.dbTIME, ds.dbYEARDAY)
+DATETIME = DBAPITypeObject(ds.dbTIME, ds.dbYEARDAY)
+ROWID    = DBAPITypeObject(ds.dbDBPTR)
 
-Binary    = buffer
-
-Date = datetime.date
-Time = datetime.time
-Timestamp = datetime.datetime
-TimestampFromTicks = Timestamp.fromtimestamp
-
-def DateFromTicks(ticks):
-    return Date(TimestampFromTicks(ticks).timetuple()[:3])
-
-def TimeFromTicks(ticks):
-    return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
 # Utility classes
 #----------------------------------------------------------------------------#
@@ -105,7 +39,7 @@ def _dbptr(value):
     return value
 
 
-class _Executer(object):
+class _Executer(BaseExecuter):
     """
     Executes commands as a function or attribute
     
@@ -118,70 +52,30 @@ class _Executer(object):
     a convenience that makes sense given the Datascope API
 
     """
-    __slots__ = ['__cursor']
-    
-
-    @staticmethod
-    def __execute(cursor, operation, *args):
+    def execute(self, operation, *args):
         """
         Based on original execute function
         """
         fxn = '_' + operation
         args = [_dbptr(a) for a in args]
         # Call if exists
-        if not hasattr(_ds, fxn):
+        if not hasattr(ds, fxn):
             raise ProgrammingError("No such command available: " + fxn)
-        proc = getattr(_ds, fxn)
-        result = proc(cursor._dbptr, *args) 
+        proc = getattr(ds, fxn)
+        result = proc(self.cursor._dbptr, *args) 
         
         # Return depends on result
         if isinstance(result, list) and len(result) == 4:
-            if _ds.dbINVALID in result:
+            if ds.dbINVALID in result:
                 raise DatabaseError("Invalid value in pointer: {0}".format(result))
-            cursor._dbptr = result
-            return cursor.rowcount
+            self.cursor._dbptr = result
+            return self.cursor.rowcount
         else:
             return result
-    
-    def __init__(self, cursor):
-        """
-        Create an object to execute a Dbptr method
-
-        Input
-        -----
-        DBAPI2 Cursor instance
-        
-        """
-        self.__cursor = cursor
-
-    def __getattr__(self, operation):
-        """
-        Return a function that calls your method 'operation'
-        """
-        def _operation(*args, **kwargs):
-            return self.__execute(self.__cursor, operation, *args, **kwargs)
-        
-        return _operation
-
-    def __call__(self, operation, params=[]):
-        """
-        Standard DBAPI2-style execute as a function
-        """
-        if isinstance(params, dict):
-            result = self.__execute(self.__cursor, operation, **params)
-        else:
-            result = self.__execute(self.__cursor, operation, *params)
-        return result
-
-
-class Row(object):
-    def __new__(cls, cursor, row):
-        return tuple(row)
-
 
 # DBAPI Classes
 #----------------------------------------------------------------------------#
-class Cursor(object):
+class Cursor(BaseCursor):
     """
     DBAPI 2.0 compatible cursor type for Datascope
     
@@ -216,30 +110,14 @@ class Cursor(object):
     __iter__ : Cursor is a generator which can be iterated over
     
     """
-    #--- Attributes ---------------------------------------------------#
-    # PRIVATE
+    _executer = _Executer
+
     @property
     def _dbptr(self):
         return [self._database, self._table, self._field, self._record]
     @_dbptr.setter
     def _dbptr(self, value):
         self._database, self._table, self._field, self._record = value
-
-    _database = None           # cursor pointer
-    _table    = None
-    _field    = None
-    _record   = None
-
-    # DBAPI
-    arraysize = 1           # Step size for fetch
-    
-    # EXTENSIONS
-    connection = None       # Parent Connection
-    
-    # CUSTOM
-    CONVERT_NULL = False    # Convert NULL values to python None
-    CONVERT_DATETIME = False
-    row_factory  = Row      # Use this to build rows (default is tuple)
 
     @property
     def _nullptr(self):
@@ -248,7 +126,7 @@ class Cursor(object):
         
         """
         null = copy(self._dbptr)
-        null[3] = _ds.dbNULL
+        null[3] = ds.dbNULL
         return null
 
     @property
@@ -264,24 +142,24 @@ class Cursor(object):
         Will return a namedtuple if available
 
         """
-        if self._table == _ds.dbALL or _ds.dbINVALID in self._dbptr:
+        if self._table == ds.dbALL or ds.dbINVALID in self._dbptr:
             return None
         if 'collections' in globals() and hasattr(collections, 'namedtuple'):
             Tuple = collections.namedtuple('Column', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
         else:
             Tuple = tuple
         dbptr = self._nullptr
-        table_fields = _ds._dbquery(dbptr, 'dbTABLE_FIELDS')
+        table_fields = ds._dbquery(dbptr, 'dbTABLE_FIELDS')
         description = []
         for dbptr[2], name in enumerate(table_fields):
             if name in table_fields[:dbptr[2]]:
-                name = '.'.join([_ds._dbquery(dbptr, _ds.dbFIELD_BASE_TABLE), name])
-            type_code     = _ds._dbquery(dbptr, _ds.dbFIELD_TYPE)
-            display_size  = _ds._dbquery(dbptr, _ds.dbFORMAT)
-            internal_size = _ds._dbquery(dbptr, _ds.dbFIELD_SIZE)
-            precision     = _ds._dbquery(dbptr, _ds.dbFIELD_FORMAT)
+                name = '.'.join([_ds._dbquery(dbptr, ds.dbFIELD_BASE_TABLE), name])
+            type_code     = ds._dbquery(dbptr, ds.dbFIELD_TYPE)
+            display_size  = ds._dbquery(dbptr, ds.dbFORMAT)
+            internal_size = ds._dbquery(dbptr, ds.dbFIELD_SIZE)
+            precision     = ds._dbquery(dbptr, ds.dbFIELD_FORMAT)
             scale         = None
-            null_ok       = name not in _ds._dbquery(dbptr, _ds.dbPRIMARY_KEY)
+            null_ok       = name not in ds._dbquery(dbptr, ds.dbPRIMARY_KEY)
             
             dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
             description.append(dtup)
@@ -290,14 +168,10 @@ class Cursor(object):
     @property
     def rowcount(self):
         if self._table >= 0:
-            return _ds._dbquery(self._dbptr, _ds.dbRECORD_COUNT)
+            return ds._dbquery(self._dbptr, ds.dbRECORD_COUNT)
         else:
             return -1
 
-    @property
-    def rownumber(self):
-        return self._record
-    
     def __init__(self, dbptr, **kwargs):
         """
         Make a Cursor from a Dbptr
@@ -307,22 +181,11 @@ class Cursor(object):
         dbptr    : antelope.datascope.Dbptr
         **kwargs : keyword args, where
             -> if a cursor attribute, set attribute value
-            -> remaining kwargs passed to dblookup
         
         """
-        self._dbptr = copy(dbptr)
-        
-        if 'connection' in kwargs:
-            self.connection = kwargs.pop('connection')
+        super(Cursor, self).__init__(**kwargs)
 
-        # Inherit settings from Connection if exists
-        if self.connection:
-            if self.connection.row_factory:
-                self.row_factory = self.connection.row_factory
-            if self.connection.CONVERT_NULL:
-                self.CONVERT_NULL = self.connection.CONVERT_NULL
-            if self.connection.CONVERT_DATETIME:
-                self.CONVERT_DATETIME = self.connection.CONVERT_DATETIME
+        self._dbptr = copy(dbptr)
         
         # Attributes
         for k, v in kwargs.items():
@@ -335,12 +198,6 @@ class Cursor(object):
             yield self._fetch()
     
     @staticmethod
-    def _convert_null(value, null):
-        if value == null:
-            return None
-        return value
-
-    @staticmethod
     def _convert_dt(value, type_code):
         if type_code == DATETIME and value is not None and isinstance(value, float):
             return TimestampFromTicks(value)
@@ -348,12 +205,12 @@ class Cursor(object):
 
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        tbl = _ds._dbquery(self._dbptr, _ds.dbTABLE_NAME)  # TODO: check view compat
+        tbl = ds._dbquery(self._dbptr, ds.dbTABLE_NAME)  # TODO: check view compat
         desc = self.description
         fields = [d[0] for d in desc]
-        row = _ds._dbgetv(self._dbptr, tbl, *fields)
+        row = ds._dbgetv(self._dbptr, tbl, *fields)
         if self.CONVERT_NULL:    
-            row = [self._convert_null(row[n], null) for n, null in enumerate(_ds._dbgetv(self._nullptr, tbl, *fields))]
+            row = [self._convert_null(row[n], null) for n, null in enumerate(ds._dbgetv(self._nullptr, tbl, *fields))]
         if self.CONVERT_DATETIME:
             row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
         self._record += 1
@@ -361,155 +218,16 @@ class Cursor(object):
 
     def close(self):
         """Close database connection"""
-        _ds._dbclose(self._dbptr)
-    
-    @property
-    def execute(self):
-        """
-        Execute Datascope database command
-
-        Because Datascope doesn't have an exposed 'language', and
-        most of the functionality is already available through the
-        Dbptr API, this is just an attempt at standardizing these calls.
-        
-        Calls
-        =====
-
-        Standard : The standard DBAPI way
-        ---------------------------------
-        result = cursor.execute(operation, params=[])
-
-            Inputs
-            ------
-            operation : name of a Dbptr method
-            params    : sequence or mapping of parameters for given method
-        
-        API : Use the Datascope API methods
-        -----------------------------------
-        result = cursor.execute.operation(*params, **kparams)
-            
-            Call Dbptr methods directly.
-
-        Returns
-        =======
-        Depends on command, anything returning a Dbptr modifies the cursor
-        and is available through the 'fetch*' methods or by iterating, 
-        and returns the number of rows, anything else is returned directly.
-        
-        Notes
-        =====
-        This is a hacky way to get at Datascope functions, originally done
-        through 'callproc', but this should be the main method, so... 
-        
-        The Dbptr API already converts basic types, but not everything, 
-        the NULL implementatiion is a mess, and times are just floats, so,
-        in the future, could check the type and implement the DBAPI types
-        by say, converting any datetime objects to the float stamp expected.
-        
-        """
-        return _Executer(self)
-
-    def executemany(self, operation, param_seq=[]):
-        """Execute one command multiple times"""
-        for params in param_seq:
-            rc = self.execute(operation, params)
-        return rc
-        
-    def fetchone(self):
-        """
-        Return one row from current pointer.
-
-        Returns
-        -------
-        tuple or row_factory-generated row
-
-        If CONVERT_NULL is True, any value equal to its NULL value
-        will be a python None.
-        
-        Notes
-        -----
-        If the 'dbALL' record is there, just start at first one
-        also, rollover to 0 if at the end
-        
-        """
-        if not 0 <= self.rownumber < self.rowcount:
-            self._record = 0
-        return self._fetch()
-
-    def fetchmany(self, size=None):
-        """
-        Return 'size' number of rows
-        
-        Inputs
-        ------
-        size : int of number of records to return (self.arraysize)
-        
-        Returns
-        -------
-        list of tuples or row_factory-generated rows
-
-        Notes
-        -----
-        If no 'size' given, uses the 'arraysize' attribute
-        
-        If 'size' is more records than are left, functions the same
-        as the 'fetchall()' method.
-        
-        """
-        if size is None:
-            size = self.arraysize
-        end = self.rownumber + size
-        if end > self.rowcount:
-            end = self.rowcount
-        return [self.fetchone() for self._record in xrange(self.rownumber, end)]
-            
-    def fetchall(self):
-        """
-        Return the rest of the rows
-
-        Returns
-        -------
-        list of tuples or row_factory-generated rows
-        
-        """
-        return self.fetchmany(size=self.rowcount)
-        
-    def scroll(self, value, mode='relative'):
-        """
-        Move the Cursor (rownumber)
-        
-        Inputs
-        ------
-        value : int of index movement
-        mode  : str of -
-            "relative" : move 'value' from current (default)
-            "absolute" : move to 'value' record
-        
-        """
-        recnum = self._record
-        if mode == "relative":
-            recnum += value
-        elif mode == "absolute":
-            recnum = value
-        else:
-            raise ProgrammingError("Invalid mode: " + mode)
-        if 0 <= recnum < self.rowcount:
-            self._record = recnum
-        else:
-            raise IndexError("Produces an index out of range")
+        ds._dbclose(self._dbptr)
          
 
-class Connection(object):
+class Connection(BaseConnection):
     """
     DBAPI compatible Connection type for Datascope
     
     """
     _dbptr = None
-    
     cursor_factory = Cursor
-    row_factory  = None
-    CONVERT_NULL = False
-    CONVERT_DATETIME = False
 
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
@@ -525,26 +243,18 @@ class Connection(object):
     
         """
         if database == ":memory:":
-            self._dbptr = _ds._dbtmp(schema)
+            self._dbptr = ds._dbtmp(schema)
         else:
-            self._dbptr = _ds._dbopen(database, perm)
+            self._dbptr = ds._dbopen(database, perm)
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
         
     def close(self):
-        _ds._dbclose(self._dbptr)
+        ds._dbclose(self._dbptr)
 
-    def __enter__(self):
-        """With support"""
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Close Connection if Exception thrown in a 'with'
-        """
-        if _ds._dbquery(self._dbptr, _ds.dbDATABASE_COUNT) != 0:
-            self.close()
+    def is_open(self):
+        return ds._dbquery(self._dbptr, ds.dbDATABASE_COUNT) != 0
     
     def cursor(self, **kwargs):
         """
@@ -556,7 +266,8 @@ class Connection(object):
         
         """
         return self.cursor_factory(self._dbptr, connection=self, **kwargs)
-        
+    
+
 def connect(dsn=':memory:', perm='r', **kwargs):
     """
     Return a Connection object to a Datascope database
@@ -568,5 +279,3 @@ def connect(dsn=':memory:', perm='r', **kwargs):
         
     """
     return Connection(dsn, perm=perm, **kwargs)
-
-
