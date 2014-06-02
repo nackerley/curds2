@@ -1,15 +1,17 @@
 #
-# dbapi2 module for Datascope
-#
+"""
+curds2.c_dbapi2 module for Datascope
+
+Uses the base python wrappers
+"""
+import exceptions
 import datetime
 import logging
-from exceptions import StandardError
 from copy import copy
 try:
     import collections
 except ImportError:
     pass
-
 # Check ENV if Antelope is not installed via sitecustomize.py
 try:
     from antelope import _datascope as _ds
@@ -31,10 +33,10 @@ threadsafety = 0          # Playing it safe (datascope??)
 paramstyle   = "format"   # N/A right now, execute uses Dbptr API
 
 # DBAPI standard exceptions
-class Error(StandardError): 
+class Error(exceptions.StandardError): 
     pass
 
-class Warning(StandardError):
+class Warning(exceptions.StandardError):
     pass
 
 class InterfaceError(Error):
@@ -94,8 +96,8 @@ def DateFromTicks(ticks):
 def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
+# Utility classes
 #----------------------------------------------------------------------------#
-
 def _dbptr(value):
     """Map cursor to dbptr"""
     if hasattr(value, '_dbptr'):
@@ -310,17 +312,22 @@ class Cursor(object):
         """
         self._dbptr = copy(dbptr)
         
-        # Attributes
-        for k in kwargs.keys():
-            if hasattr(self, k):
-                self.__setattr__(k, kwargs.pop(k))
-        
-        # Inherit row_factory from Connection if not set on creation
+        if 'connection' in kwargs:
+            self.connection = kwargs.pop('connection')
+
+        # Inherit settings from Connection if exists
         if self.connection:
             if self.connection.row_factory:
                 self.row_factory = self.connection.row_factory
             if self.connection.CONVERT_NULL:
                 self.CONVERT_NULL = self.connection.CONVERT_NULL
+            if self.connection.CONVERT_DATETIME:
+                self.CONVERT_DATETIME = self.connection.CONVERT_DATETIME
+        
+        # Attributes
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                self.__setattr__(k, v)
 
     def __iter__(self):
         """Generator, yields a row from 0 to rowcount"""
@@ -502,6 +509,7 @@ class Connection(object):
     cursor_factory = Cursor
     row_factory  = None
     CONVERT_NULL = False
+    CONVERT_DATETIME = False
 
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """

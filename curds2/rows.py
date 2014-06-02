@@ -31,7 +31,38 @@ class NamedTupleRow(object):
         return Tuple(*row)
         
 
-class OrderedDictRow(collections.OrderedDict):
+
+class OrderedDictRow(object):
+    """
+    A row_factory function to make OrderedDict rows from row tuple
+        
+    Returns OrderedDict instances with:
+        keys = field names from cursor.description
+        values = values from given row
+    
+    Notes
+    -----
+    Supports iteration, getitem syntax and the 'get' function, and can
+    access duplicate-named fields in views with the dot-syntax names
+    """
+    def __new__(cls, cursor, row):
+        return collections.OrderedDict([(d.name, row[n]) for n, d in enumerate(cursor.description)])
+
+
+
+#######################################################################
+# DEPRICATED
+#######################################################################
+#
+# These rows are depricated due to redundant functionality or their 
+# availability elsewhere.
+
+#
+# New class/function returns OrderedDict directly, old version
+# is retained just in case we need attributes/methods in our class
+# in the future
+#
+class OrderedDictRow_old(collections.OrderedDict):
     """
     A row_factory function to make OrderedDict rows from row tuple
     
@@ -44,24 +75,17 @@ class OrderedDictRow(collections.OrderedDict):
     def __init__(self, cursor, row):
         super(OrderedDictRow,self).__init__([(d.name, row[n]) for n, d in enumerate(cursor.description)])
 
-
-
-#######################################################################
-# DEPRICATED
-#######################################################################
 #
-# These rows are depricated due to redundant functionality or their 
-# availability elsewhere. SQL row may get promoted back, but the
 # UTCOrdDictRow can now be constructed with an OrderedDictRow and
 # the CONVERT_DATETIME cursor option by monkey-patching the
-# TimestampFromTicks function, for example. Right now SQLValues can
-# be found in the nsl.commons python module as a custom Row.
+# TimestampFromTicks function, for example:
+# >>> curds2.dbapi2.TimestampFromTicks = UTCDateTime
+# >>> curs = conn.cursor(CONVERT_DATETIME=True, row_factory=OrderedDictRow)
 #
 try:
     from obspy.core.utcdatetime import UTCDateTime
 except ImportError:
     pass
-
 
 class UTCOrdDictRow(collections.OrderedDict):
     """
@@ -74,7 +98,10 @@ class UTCOrdDictRow(collections.OrderedDict):
         kv = [(d.name, (d.type_code==4 and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
 
-
+#
+# SQL row may get promoted back, but can be found in the nsl.commons 
+# python module as a custom Row.
+#
 class _SQLValues(object):
     @staticmethod
     def _sql_str(value):

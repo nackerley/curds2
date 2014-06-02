@@ -97,8 +97,8 @@ def DateFromTicks(ticks):
 def TimeFromTicks(ticks):
     return Time(TimestampFromTicks(ticks).timetuple()[3:6])
 
+# Utility Classes
 #----------------------------------------------------------------------------#
-
 class _Executer(object):
     """
     Executes commands as a function or attribute
@@ -291,17 +291,22 @@ class Cursor(object):
         """
         self._dbptr = Dbptr(dbptr)
         
-        # Attributes
-        for k in kwargs.keys():
-            if hasattr(self, k):
-                self.__setattr__(k, kwargs.pop(k))
-        
-        # Inherit row_factory from Connection if not set on creation
+        if 'connection' in kwargs:
+            self.connection = kwargs.pop('connection')
+
+        # Inherit settings from Connection if exists
         if self.connection:
             if self.connection.row_factory:
                 self.row_factory = self.connection.row_factory
             if self.connection.CONVERT_NULL:
                 self.CONVERT_NULL = self.connection.CONVERT_NULL
+            if self.connection.CONVERT_DATETIME:
+                self.CONVERT_DATETIME = self.connection.CONVERT_DATETIME
+        
+        # Attributes
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                self.__setattr__(k, v)
     
     def __iter__(self):
         """Generator, yields a row from 0 to rowcount"""
@@ -469,13 +474,13 @@ class Cursor(object):
 class Connection(object):
     """
     DBAPI compatible Connection type for Datascope
-    
     """
     _dbptr = None
     
     cursor_factory = Cursor
     row_factory  = None
     CONVERT_NULL = False
+    CONVERT_DATETIME = False
 
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
