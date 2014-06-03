@@ -8,7 +8,9 @@ This module uses instances of the antelope.datascope.Dbptr
 (All Dbptr instance methods are available through execute)
 
 See curds2.raw.dbapi2 for a fully functional implementation of the
-"raw" functions.
+"raw" functions. This is essentially the "raw" version with Dbptr on top.
+So any commands sent through 'execute' should be Dbptr methods, rather than
+'_datascope' functions.
 
 """
 from curds2.api.core import *
