@@ -40,12 +40,17 @@ Customizations
 
 Datascope has no NULL type, each field defines its own value which compares equal to NULL. Therefore, NULLs must be explicitly looked up and converted, at a slight performance overhead. This can be enabled for this module by setting the Cursor attribute `CONVERT_NULL` to `True`. All fields in any rows returned the the `fetch*` methods will contain a python `None` for any NULL value. 
 
+### DATETIME support
+
+There is support for converting Datascope floats with type `dbTIME` to a date object. The default uses the `TimestampFromTicks` function, which defaults to return a python `datetime.datetime`. This can be turned on by setting the `Cursor` attribute `CONVERT_DATETIME` to `True`. The `TimestampFromTicks` function can be changed at the module level with any function that accepts an epoch float timestamp (i.e. the ObsPy `UTCDateTime` constructor)
+
 ### Factory support
 
 #### Cursor Factory
 Custom Cursors are allowed by passing the class to the `cursor_factory` attribute of any Connection. Possible uses would be to inherit the current Cursor class and override an internal method for more efficient object-relational mapping of rows...
 
 #### Row Factory
+
 This module supports row factory classes similar to those of the sqlite3 (among others) implementation of the DBAPI. Instances of a Cursor or Connection have a attribute called `row_factory`. Setting this attribute to a special class constuctor which has the format: `GenericRowFactory(cursor, row)` allows for the custom building of rows. The default row returned by the `fetch*` methods is the standard `tuple`. Currently this module has several pre-defined row factory classes:
 * NamedTupleRow - Rows of python namedtuples with attribute-style access to each item.
 * OrderedDictRow - Rows of python OrderedDict instances.
