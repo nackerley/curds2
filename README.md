@@ -18,7 +18,7 @@ As a non-standard convenience, one can run any Dbptr method directly on the 'exe
 
 ### Example
 ```python
->>> from curds2 import connect
+>>> from curds2.dbapi2 import connect
 >>> curs = connect('/tmp/spam').cursor()
 
 # Standard DBAPI2 style
@@ -53,10 +53,10 @@ This module supports row factory classes similar to those of the sqlite3 (among 
 
 Raw Interface
 -------------
-An implementation of the module using only the 'raw' interface C-library wrapper is available, called `c_dbapi2`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes the full function name:
+An implementation of the module using only the 'raw' interface C-library wrapper is available, as `curds2.raw.dbapi2`. Not recommended for most uses, becuase the syntax of calling functions via 'execute' is basically the same as the C functions, and is pretty inconvenient for interactive use and a bugger to script. Use for more speed, more complete access to the lib wrapper, or if you just want to run 'dbprocess' lines and don't have to make dbjoin and dblookup calls. The syntax for execute then becomes the full function name:
 
 ```python
->>> from curds2.c_dbapi2 import connect
+>>> from curds2.raw.dbapi2 import connect
 >>> curs = connect('demo').cursor()
 
 # Closer to C usage
