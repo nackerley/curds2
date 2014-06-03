@@ -10,7 +10,7 @@ import urllib2
 from curds2.api.core import *
 from curds2.api.base import *
 
-# Shim in types for now
+# Shim in hardcoded Datascope types for now
 dbBOOLEAN = 1
 dbINTEGER = 2
 dbREAL = 3
