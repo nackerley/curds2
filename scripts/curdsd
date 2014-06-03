@@ -1,0 +1,4 @@
+#!/usr/bin/python
+from curds2.ws.flaskapp import gevent_main
+if __name__=="__main__":
+    gevent_main()
