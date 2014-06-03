@@ -8,6 +8,7 @@ import urlparse
 import urllib2
 
 from curds2.api.core import *
+from curds2.api.base import *
 
 # Shim in types for now
 dbBOOLEAN = 1
@@ -24,14 +25,14 @@ NUMBER   = DBAPITypeObject(dbINTEGER, dbREAL, dbBOOLEAN, dbTIME, dbYEARDAY)
 DATETIME = DBAPITypeObject(dbTIME, dbYEARDAY)
 ROWID    = DBAPITypeObject(dbDBPTR)
 
+# implement Connection, Cursor, etc
+class Cursor(BaseCursor):
+    pass
 
 
-def connect(dsn=None, perm='r', **kwargs):
-    """
-    Return a Connection object to a Datascope database
-    """
-    url = urlparse.urlparse(dsn)
-    return Connection(url, **kwargs)
+class Connection(BaseConnection):
+    pass
 
 
-
+def connect(dsn, *args, **kwargs):
+    pass

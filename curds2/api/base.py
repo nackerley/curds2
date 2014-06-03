@@ -68,12 +68,12 @@ class BaseCursor(object):
     description [read only attribute/property]
     rowcount [read only attribute/property]
     """
+    _executer = BaseExecuter
     _database = None           # cursor pointer
     _table    = None
     _field    = None
     _record   = None
-    _executer = BaseExecuter
-
+    
     # DBAPI
     arraysize = 1           # Step size for fetch
     
@@ -113,6 +113,13 @@ class BaseCursor(object):
                 self.CONVERT_NULL = self.connection.CONVERT_NULL
             if self.connection.CONVERT_DATETIME:
                 self.CONVERT_DATETIME = self.connection.CONVERT_DATETIME
+    
+    @property
+    def _dbptr(self):
+        return [self._database, self._table, self._field, self._record]
+    @_dbptr.setter
+    def _dbptr(self, value):
+        self._database, self._table, self._field, self._record = value
     
     @property
     def rownumber(self):
@@ -262,7 +269,7 @@ class BaseCursor(object):
         if 0 <= recnum < self.rowcount:
             self._record = recnum
         else:
-            raise IndexError("Produces an index out of range")
+            raise IndexError("Produces an index out of range: %d of %d rows" % (recnum, self.rowcount))
 
 
 class BaseConnection(object):

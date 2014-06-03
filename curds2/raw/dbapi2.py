@@ -113,13 +113,6 @@ class Cursor(BaseCursor):
     _executer = _Executer
 
     @property
-    def _dbptr(self):
-        return [self._database, self._table, self._field, self._record]
-    @_dbptr.setter
-    def _dbptr(self, value):
-        self._database, self._table, self._field, self._record = value
-
-    @property
     def _nullptr(self):
         """
         Return current pointer's NULL record
