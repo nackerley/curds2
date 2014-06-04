@@ -31,7 +31,7 @@ class Service(object):
             nrecs = curs.execute('dbprocess', [cmds])
             desc = curs.description
             rows = [c for c in curs]
-        return {'nrecs': nrecs, 'description': desc, 'rows': rows}
+        return {'cursor': {'description': desc, 'rows': rows}}
 
     def execute(self, args, method='dbprocess'):
         if not hasattr(self, method):

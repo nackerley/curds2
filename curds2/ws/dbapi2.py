@@ -81,16 +81,16 @@ class Cursor(BaseCursor):
         rep.close()
         reply = json.loads(j)
         if reply.get('error'):
-            e = reply.get('error')
-            if e['type'] in globals():
-                Err = globals()[e['type']]
-                raise Err(e['message'])
-            else:
-                raise StandardError(': '.join([e['type'], e['message']]))
+            e = reply['error']
+            raise DatabaseError(': '.join([e['type'], e['message']]))
         result = reply.get('result')
-        self.description = result.get('description')
-        self._rows = result.get('rows')
-        return self.rowcount
+        if isinstance(result, dict) and 'cursor' in result:
+            _curs = result['cursor']
+            self.description = _curs.get('description')
+            self._rows = _curs.get('rows')
+            return self.rowcount
+        else:
+            return result
 
 class Connection(BaseConnection):
     """
