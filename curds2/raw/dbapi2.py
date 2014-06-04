@@ -146,7 +146,7 @@ class Cursor(BaseCursor):
         description = []
         for dbptr[2], name in enumerate(table_fields):
             if name in table_fields[:dbptr[2]]:
-                name = '.'.join([_ds._dbquery(dbptr, ds.dbFIELD_BASE_TABLE), name])
+                name = '.'.join([ds._dbquery(dbptr, ds.dbFIELD_BASE_TABLE), name])
             type_code     = ds._dbquery(dbptr, ds.dbFIELD_TYPE)
             display_size  = ds._dbquery(dbptr, ds.dbFORMAT)
             internal_size = ds._dbquery(dbptr, ds.dbFIELD_SIZE)

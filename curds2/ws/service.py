@@ -45,7 +45,7 @@ class Service(object):
         try:
             meth = request.get('method', 'dbprocess')
             params = request.pop('params')
-            cmds = params.get('commands', [])
+            cmds = params.get('args', [])
             self.cursor_params = params.get('cursor', {})
             result = self.execute(cmds, method=meth)
             request.update({'result': result})
@@ -53,8 +53,6 @@ class Service(object):
             request.update({'error': {
                 'message': e.message, 
                 'type': e.__class__.__name__,
-                'dbname': self.dbname,
-                'cursor': self.cursor_params,
                 }
             })
         return request

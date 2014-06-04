@@ -69,22 +69,25 @@ class Cursor(BaseCursor):
     
     def execute(self, operation, params=[]):
         """
-        Call server at a URL and get result
+        Call server at a URL and get JSONRPC `result
         """
         curs_settings = ('CONVERT_NULL',)  # to forward to server Cursor
         curs_params = dict([(p, getattr(self, p)) for p in curs_settings])
-        rpc_params = {'commands': params, 'cursor': curs_params}
+        rpc_params = {'args': params, 'cursor': curs_params}
         self._request.update({'method': operation, 'params': rpc_params, 'id': 1})
         req = urllib2.Request(self.dsn, json.dumps(self._request), self._headers)
         rep = urllib2.urlopen(req)
         j = rep.read()
         rep.close()
-        result = json.loads(j)
-        if 'result' in result:
-            result = result.get('result')
-        else:
-            err = result.get('error')
-            raise DatabaseError(": ".join([err['type'], err['message']]))
+        reply = json.loads(j)
+        if reply.get('error'):
+            e = reply.get('error')
+            if e['type'] in globals():
+                Err = globals()[e['type']]
+                raise Err(e['message'])
+            else:
+                raise StandardError(': '.join([e['type'], e['message']]))
+        result = reply.get('result')
         self.description = result.get('description')
         self._rows = result.get('rows')
         return self.rowcount
