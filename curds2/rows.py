@@ -27,7 +27,7 @@ class NamedTupleRow(object):
 
     """
     def __new__(cls, cursor, row):
-        Tuple = collections.namedtuple('NamedTupleRow', [d.name.replace('.','_') for d in cursor.description])
+        Tuple = collections.namedtuple('NamedTupleRow', [d[0].replace('.','_') for d in cursor.description])
         return Tuple(*row)
         
 
@@ -46,7 +46,7 @@ class OrderedDictRow(object):
     access duplicate-named fields in views with the dot-syntax names
     """
     def __new__(cls, cursor, row):
-        return collections.OrderedDict([(d.name, row[n]) for n, d in enumerate(cursor.description)])
+        return collections.OrderedDict([(d[0], row[n]) for n, d in enumerate(cursor.description)])
 
 
 
@@ -73,7 +73,7 @@ class OrderedDictRow_old(collections.OrderedDict):
     """
     # Have to build key/value tuple pairs...
     def __init__(self, cursor, row):
-        super(OrderedDictRow,self).__init__([(d.name, row[n]) for n, d in enumerate(cursor.description)])
+        super(OrderedDictRow,self).__init__([(d[0], row[n]) for n, d in enumerate(cursor.description)])
 
 #
 # UTCOrdDictRow can now be constructed with an OrderedDictRow and
@@ -95,7 +95,7 @@ class UTCOrdDictRow(collections.OrderedDict):
     compares to dbTIME to a utcdatetime object.
     """
     def __init__(self, cursor, row):
-        kv = [(d.name, (d.type_code==4 and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
+        kv = [(d[0], (d[1]==4 and row[n] is not None) and UTCDateTime(row[n]) or row[n]) for n, d in enumerate(cursor.description)]
         super(UTCOrdDictRow, self).__init__(kv)
 
 #
@@ -164,7 +164,7 @@ class SQLValuesRow(_SQLValues):
     
     """
     def __new__(cls, cursor, row):
-        Tuple = collections.namedtuple(cls.__name__, [d.name.replace('.','_') for d in cursor.description])
+        Tuple = collections.namedtuple(cls.__name__, [d[0].replace('.','_') for d in cursor.description])
         class_ = type(cls.__name__, (_SQLValues, Tuple,), {})
         return class_(*super(SQLValuesRow, cls)._values(row))
 
