@@ -2,6 +2,7 @@
 """
 Flask app to service dbapi2 Antelope requests using curds2
 """
+import os
 from flask import Flask, request, jsonify
 from curds2.ws.service import Service
 
@@ -24,10 +25,11 @@ def process_reply(rep):
     return jsonify(rep)
 
 
-@app.route('/', methods=['GET', 'POST'])
-def curds_service():
+@app.route('/<path:dbname>', methods=['GET', 'POST'])
+def curds_service(dbname):
+    dbname = os.path.join(os.sep, dbname)
     req = process_request(request)
-    result = Service.run(req)
+    result = Service(dbname).run(req)
     return process_reply(result)
 
 

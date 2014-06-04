@@ -21,11 +21,11 @@ class Service(object):
         if cursor_params:
             self.cursor_params = cursor_params
 
-    def dbprocess(self, cmds):
+    def dbprocess(self, args):
         """
         connect to a db, run dbprocess, close connection
         """
-        cmds = [c.encode() for c in cmds if isinstance(c, unicode)]  # no Unicode support sux
+        cmds = [c.encode() for c in args[0]]  # no Unicode support sux
         with dbapi2.connect(self.dbname) as conn:
             curs = conn.cursor(**self.cursor_params)
             nrecs = curs.execute('dbprocess', [cmds])
@@ -38,19 +38,23 @@ class Service(object):
             raise AttributeError("No such method: {0}".format(method))    
         return getattr(self, method)(args)
     
-    @classmethod
-    def run(cls, request):
+    def run(self, request):
         """
         Turn a JSONRPC dict request into a JSONRPC dict reply
         """
         try:
             meth = request.get('method', 'dbprocess')
             params = request.pop('params')
-            dbname = params.get('dbname', '')
             cmds = params.get('commands', [])
-            curs = params.get('cursor', {})
-            result = cls(dbname, curs).execute(cmds, method=meth)
+            self.cursor_params = params.get('cursor', {})
+            result = self.execute(cmds, method=meth)
             request.update({'result': result})
         except Exception as e:
-            request.update({'error': {'message': e.message, 'type': e.__class__.__name__}})
+            request.update({'error': {
+                'message': e.message, 
+                'type': e.__class__.__name__,
+                'dbname': self.dbname,
+                'cursor': self.cursor_params,
+                }
+            })
         return request
