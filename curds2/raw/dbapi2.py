@@ -20,7 +20,7 @@ try:
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.join(os.env['ANTELOPE'],'data','python'))
+    sys.path.append(os.path.join(os.environ['ANTELOPE'],'data','python'))
     from antelope import _datascope as ds
 
 STRING   = DBAPITypeObject(ds.dbSTRING)
