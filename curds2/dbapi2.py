@@ -111,16 +111,14 @@ class Connection(RawConnection):
     """
     DBAPI compatible Connection type for Datascope
     """
-    __ptr = None
-
     cursor_factory = Cursor
     
     @property
     def _dbptr(self):
-        return self.__ptr
+        return Dbptr(super(Connection, self)._dbptr)
     @_dbptr.setter
     def _dbptr(self, value):
-        self.__ptr = Dbptr(value)
+        self._database = value[0]
 
 
 def connect(dsn=':memory:', perm='r', **kwargs):

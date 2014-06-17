@@ -2,6 +2,11 @@
 """
 Base classes for API
 """
+import abc
+
+
+__metaclass__ = abc.ABCMeta
+
 
 class BaseRow(object):
     def __new__(cls, cursor, row):
@@ -68,6 +73,7 @@ class BaseCursor(object):
     description [read only attribute/property]
     rowcount [read only attribute/property]
     """
+    # INTERNAL
     _executer = BaseExecuter
     _database = None           # cursor pointer
     _table    = None
@@ -85,19 +91,21 @@ class BaseCursor(object):
     CONVERT_DATETIME = False
     row_factory  = BaseRow      # Use this to build rows (default is tuple)
     
-    @property
+    @abc.abstractproperty
     def description(self):
         """Sequence of 7-item sequences"""
         return None
 
-    @property
+    @abc.abstractproperty
     def rowcount(self):
         return -1
-
+    
+    @abc.abstractmethod
     def _fetch(self):
         """Fetch row"""
         pass
 
+    @abc.abstractmethod
     def __init__(self, *args, **kwargs):
         """
         Make a new Cursor
@@ -276,12 +284,14 @@ class BaseConnection(object):
     """
     Base Connection class with generic methods/constructor
     """
+    _database = None
+    dsn = None
+
     cursor_factory = None
     row_factory  = BaseRow
     CONVERT_NULL = False
     CONVERT_DATETIME = False
     
-    dsn = None
 
     def __init__(self, dsn, **kwargs):
         """

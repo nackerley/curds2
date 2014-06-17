@@ -4,7 +4,7 @@ curds2.c_dbapi2 module for Datascope
 
 Uses the base python wrappers
 """
-from copy import copy
+#from copy import copy
 try:
     import collections
 except ImportError:
@@ -118,7 +118,7 @@ class Cursor(BaseCursor):
         Return current pointer's NULL record
         
         """
-        null = copy(self._dbptr)
+        null = self._dbptr  # dep 'copy'
         null[3] = ds.dbNULL
         return null
 
@@ -178,7 +178,7 @@ class Cursor(BaseCursor):
         """
         super(Cursor, self).__init__(**kwargs)
 
-        self._dbptr = copy(dbptr)
+        self._dbptr = dbptr  # dep 'copy'
         
         # Attributes
         for k, v in kwargs.items():
@@ -219,9 +219,15 @@ class Connection(BaseConnection):
     DBAPI compatible Connection type for Datascope
     
     """
-    _dbptr = None
     cursor_factory = Cursor
 
+    @property
+    def _dbptr(self):
+        return [self._database, ds.dbALL, ds.dbALL, ds.dbALL]
+    @_dbptr.setter
+    def _dbptr(self, value):
+        self._database = value[0]
+    
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
         Open a connection to a Datascope database
