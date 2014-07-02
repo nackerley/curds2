@@ -20,7 +20,7 @@ class retcode_revert(object):
             return out
 
 
-def undepricate(module, decorator=retcode_revert):
+def oldversion(module, decorator=retcode_revert):
     """
     Replace all functions in a module with decorated versions
     """

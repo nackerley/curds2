@@ -11,7 +11,7 @@ except ImportError:
 
 from curds2.api.core import *
 from curds2.api.base import BaseConnection, BaseCursor, BaseExecuter
-from curds2.raw.util import undepricate
+from curds2.raw.util import oldversion
 
 # Antelope/Datascope
 #----------------------------------------------------------------------------#
@@ -25,7 +25,7 @@ except ImportError:
 finally:
     version = antpath[0].strip('/').split('/')[2]
     if version == '5.4':
-        undepricate(ds)
+        oldversion(ds)
         
 STRING   = DBAPITypeObject(ds.dbSTRING)
 BINARY   = DBAPITypeObject(None)
@@ -38,12 +38,12 @@ ROWID    = DBAPITypeObject(ds.dbDBPTR)
 #----------------------------------------------------------------------------#
 def _open(*args, **kwargs):
     db = ds._dbopen(*args, **kwargs)
-    return db  # in 5.4+ db[1], undepricate patches this for now
+    return db  # in 5.4+ db[1], oldversion patches this for now
 
 
 def _select(*args, **kwargs):
     row = ds._dbgetv(*args, **kwargs)
-    return row # in 5.4+ row[1], undepricate patches this for now
+    return row # in 5.4+ row[1], oldversion patches this for now
 
 
 def _query(*args, **kwargs):
@@ -217,7 +217,7 @@ class Cursor(BaseCursor):
 
     def _fetch(self):
         """Pull out a row from DB and increment pointer"""
-        tbl = ds._dbquery(self._dbptr, ds.dbTABLE_NAME)  # TODO: check view compat
+        tbl = _query(self._dbptr, ds.dbTABLE_NAME)  # TODO: check view compat
         desc = self.description
         fields = [d[0] for d in desc]
         row = _select(self._dbptr, tbl, *fields)
