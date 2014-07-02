@@ -97,7 +97,10 @@ class Cursor(RawCursor):
         return Dbptr(super(Cursor, self)._dbptr)
     @_dbptr.setter
     def _dbptr(self, value):
-        self._database, self._table, self._field, self._record = Dbptr(value)
+        db = Dbptr(value)
+        self._database, self._table, self._field, self._record = [
+                db.database, db.table, db.field, db.record
+                ]
 
     @property
     def _nullptr(self):

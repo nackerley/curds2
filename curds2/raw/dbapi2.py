@@ -4,7 +4,6 @@ curds2.c_dbapi2 module for Datascope
 
 Uses the base python wrappers
 """
-#from copy import copy
 try:
     import collections
 except ImportError:
@@ -12,17 +11,24 @@ except ImportError:
 
 from curds2.api.core import *
 from curds2.api.base import BaseConnection, BaseCursor, BaseExecuter
+from curds2.raw.util import undepricate
 
 # Antelope/Datascope
 #----------------------------------------------------------------------------#
 try:
-    from antelope import _datascope as ds
+    from antelope import __path__ as antpath, _datascope as ds
 except ImportError:
     import sys
     import os
     sys.path.append(os.path.join(os.environ['ANTELOPE'],'data','python'))
-    from antelope import _datascope as ds
-
+    from antelope import __path__ as antpath, _datascope as ds
+finally:
+    version = antpath[0].strip('/').split('/')[2]
+    print(version)
+    if version == '5.4':
+        print('undepricating!!')
+        undepricate(ds)
+        
 STRING   = DBAPITypeObject(ds.dbSTRING)
 BINARY   = DBAPITypeObject(None)
 NUMBER   = DBAPITypeObject(ds.dbINTEGER, ds.dbREAL, ds.dbBOOLEAN, ds.dbTIME, ds.dbYEARDAY)
@@ -202,6 +208,9 @@ class Cursor(BaseCursor):
         desc = self.description
         fields = [d[0] for d in desc]
         row = ds._dbgetv(self._dbptr, tbl, *fields)
+        #if not row[0]:
+        #if len(row) == 2 and isinstance(row[1], tuple):
+        #    row = row[1]  # API change in 5.4
         if self.CONVERT_NULL:    
             row = [self._convert_null(row[n], null) for n, null in enumerate(ds._dbgetv(self._nullptr, tbl, *fields))]
         if self.CONVERT_DATETIME:
