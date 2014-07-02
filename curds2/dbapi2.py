@@ -20,6 +20,10 @@ from curds2.raw.dbapi2 import (
 from antelope.datascope import Dbptr
 
 
+def _raw(db):
+    return [db.database, db.table, db.field, db.record]
+
+
 class _Executer(BaseExecuter):
     """
     Executes commands as a function or attribute
@@ -37,16 +41,18 @@ class _Executer(BaseExecuter):
         """
         Based on original execute function
         """
-        if not hasattr(self.cursor._dbptr, operation):
+        dbptr = Dbptr(self.cursor._dbptr)
+        if not hasattr(dbptr, operation):
             raise ProgrammingError("No such command available: " + operation)
-        proc = getattr(self.cursor._dbptr, operation)
+        proc = getattr(dbptr, operation)
         result = proc(*args, **kwargs) 
         
         # Return depends on result
         if isinstance(result, Dbptr):
-            if ds.dbINVALID in result:
-                raise DatabaseError("Invalid value in pointer: {0}".format(result))
-            self.cursor._dbptr = result
+            ptr = _raw(result)
+            if ds.dbINVALID in ptr:
+                raise DatabaseError("Invalid value in pointer: {0}".format(ptr))
+            self.cursor._dbptr = ptr
             return self.cursor.rowcount
         else:
             return result
@@ -92,36 +98,12 @@ class Cursor(RawCursor):
     """
     _executer = _Executer
 
-    @property
-    def _dbptr(self):
-        return Dbptr(super(Cursor, self)._dbptr)
-    @_dbptr.setter
-    def _dbptr(self, value):
-        db = Dbptr(value)
-        self._database, self._table, self._field, self._record = [
-                db.database, db.table, db.field, db.record
-                ]
-
-    @property
-    def _nullptr(self):
-        """
-        Return current pointer's NULL record
-        """
-        return Dbptr(super(Cursor, self)._nullptr)
-    
 
 class Connection(RawConnection):
     """
     DBAPI compatible Connection type for Datascope
     """
     cursor_factory = Cursor
-    
-    @property
-    def _dbptr(self):
-        return Dbptr(super(Connection, self)._dbptr)
-    @_dbptr.setter
-    def _dbptr(self, value):
-        self._database = value[0]
 
 
 def connect(dsn=':memory:', perm='r', **kwargs):

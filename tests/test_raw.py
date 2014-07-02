@@ -1,5 +1,9 @@
-import os, unittest
-from curds2.dbapi2_c import _ds, connect, Connection, Cursor, _Executer, ProgrammingError
+"""
+Unit and Integration tests for curds2.raw.dbapi2
+"""
+import os
+import unittest
+from curds2.raw.dbapi2 import ds as _ds, connect, Connection, Cursor, _Executer, ProgrammingError
 
 class ConnectionTestCase(unittest.TestCase):
     
@@ -25,6 +29,7 @@ class ConnectionTestCase(unittest.TestCase):
         self.assertTrue( hasattr( conn, '__enter__') )
         self.assertTrue( hasattr( conn, '__exit__') )
         self.assertTrue( hasattr( conn, 'close') )
+        self.assertTrue( hasattr( conn, 'is_open') )
         self.assertTrue( hasattr( conn, 'cursor') )
         
         # Test we are connected to the DB
@@ -58,6 +63,7 @@ class CursorTestCase(unittest.TestCase):
             curs = conn.cursor()
             self.assertTrue( hasattr( curs, '_dbptr') )
             self.assertTrue( hasattr( curs, 'CONVERT_NULL') )
+            self.assertTrue( hasattr( curs, 'CONVERT_DATETIME') )
             self.assertTrue( hasattr( curs, 'row_factory') )
             self.assertTrue( hasattr( curs, 'connection') )
             self.assertTrue( hasattr( curs, 'rownumber') )
@@ -108,7 +114,7 @@ class ExecuterTestCase(unittest.TestCase):
 
     def test_execute(self):
         """Test internal execute function"""
-        nrecs0 = _Executer._Executer__execute(self.curs, 'dblookup', '', 'origin','','')
+        nrecs0 = _Executer(self.curs).execute('dblookup', '', 'origin','','')
         self.assertEqual(nrecs0, self.NRECS_ORIGIN)
 
     def test_call(self):

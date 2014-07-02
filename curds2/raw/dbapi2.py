@@ -1,6 +1,6 @@
 #
 """
-curds2.c_dbapi2 module for Datascope
+curds2.raw.dbapi2 module for Datascope
 
 Uses the base python wrappers
 """
@@ -34,13 +34,20 @@ DATETIME = DBAPITypeObject(ds.dbTIME, ds.dbYEARDAY)
 ROWID    = DBAPITypeObject(ds.dbDBPTR)
 
 
-# Utility classes
+# Utility
 #----------------------------------------------------------------------------#
-def _dbptr(value):
-    """Map cursor to dbptr"""
-    if hasattr(value, '_dbptr'):
-        return value._dbptr
-    return value
+def _open(*args, **kwargs):
+    db = ds._dbopen(*args, **kwargs)
+    return db  # in 5.4+ db[1], undepricate patches this for now
+
+
+def _select(*args, **kwargs):
+    row = ds._dbgetv(*args, **kwargs)
+    return row # in 5.4+ row[1], undepricate patches this for now
+
+
+def _query(*args, **kwargs):
+    return ds._dbquery(*args, **kwargs)  # b/c JIC
 
 
 class _Executer(BaseExecuter):
@@ -56,12 +63,20 @@ class _Executer(BaseExecuter):
     a convenience that makes sense given the Datascope API
 
     """
+    @staticmethod
+    def _dbptr(value):
+        """Map cursor to dbptr"""
+        if hasattr(value, '_dbptr'):
+            return value._dbptr
+        return value
+
+
     def execute(self, operation, *args):
         """
         Based on original execute function
         """
         fxn = '_' + operation
-        args = [_dbptr(a) for a in args]
+        args = [self._dbptr(a) for a in args]
         # Call if exists
         if not hasattr(ds, fxn):
             raise ProgrammingError("No such command available: " + fxn)
@@ -146,17 +161,17 @@ class Cursor(BaseCursor):
         else:
             Tuple = tuple
         dbptr = self._nullptr
-        table_fields = ds._dbquery(dbptr, 'dbTABLE_FIELDS')
+        table_fields = _query(dbptr, ds.dbTABLE_FIELDS)
         description = []
         for dbptr[2], name in enumerate(table_fields):
             if name in table_fields[:dbptr[2]]:
-                name = '.'.join([ds._dbquery(dbptr, ds.dbFIELD_BASE_TABLE), name])
-            type_code     = ds._dbquery(dbptr, ds.dbFIELD_TYPE)
-            display_size  = ds._dbquery(dbptr, ds.dbFORMAT)
-            internal_size = ds._dbquery(dbptr, ds.dbFIELD_SIZE)
-            precision     = ds._dbquery(dbptr, ds.dbFIELD_FORMAT)
+                name = '.'.join([_query(dbptr, ds.dbFIELD_BASE_TABLE), name])
+            type_code     = _query(dbptr, ds.dbFIELD_TYPE)
+            display_size  = _query(dbptr, ds.dbFORMAT)
+            internal_size = _query(dbptr, ds.dbFIELD_SIZE)
+            precision     = _query(dbptr, ds.dbFIELD_FORMAT)
             scale         = None
-            null_ok       = name not in ds._dbquery(dbptr, ds.dbPRIMARY_KEY)
+            null_ok       = name not in _query(dbptr, ds.dbPRIMARY_KEY)
             
             dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
             description.append(dtup)
@@ -165,7 +180,7 @@ class Cursor(BaseCursor):
     @property
     def rowcount(self):
         if self._table >= 0:
-            return ds._dbquery(self._dbptr, ds.dbRECORD_COUNT)
+            return _query(self._dbptr, ds.dbRECORD_COUNT)
         else:
             return -1
 
@@ -205,12 +220,9 @@ class Cursor(BaseCursor):
         tbl = ds._dbquery(self._dbptr, ds.dbTABLE_NAME)  # TODO: check view compat
         desc = self.description
         fields = [d[0] for d in desc]
-        row = ds._dbgetv(self._dbptr, tbl, *fields)
-        #if not row[0]:
-        #if len(row) == 2 and isinstance(row[1], tuple):
-        #    row = row[1]  # API change in 5.4
+        row = _select(self._dbptr, tbl, *fields)
         if self.CONVERT_NULL:    
-            row = [self._convert_null(row[n], null) for n, null in enumerate(ds._dbgetv(self._nullptr, tbl, *fields))]
+            row = [self._convert_null(row[n], null) for n, null in enumerate(_select(self._nullptr, tbl, *fields))]
         if self.CONVERT_DATETIME:
             row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
         self._record += 1
@@ -251,7 +263,7 @@ class Connection(BaseConnection):
         if database == ":memory:":
             self._dbptr = ds._dbtmp(schema)
         else:
-            self._dbptr = ds._dbopen(database, perm)
+            self._dbptr = _open(database, perm)
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
@@ -260,16 +272,11 @@ class Connection(BaseConnection):
         ds._dbclose(self._dbptr)
 
     def is_open(self):
-        return ds._dbquery(self._dbptr, ds.dbDATABASE_COUNT) != 0
+        return _query(self._dbptr, ds.dbDATABASE_COUNT) != 0
     
     def cursor(self, **kwargs):
         """
         Construct a Cursor object from Connection pointer
-        
-        Notes
-        -----
-        (Any kwargs are passed to dblookup)
-        
         """
         return self.cursor_factory(self._dbptr, connection=self, **kwargs)
     

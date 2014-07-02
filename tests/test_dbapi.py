@@ -33,7 +33,7 @@ class ConnectionTestCase(unittest.TestCase):
         self.assertTrue( hasattr( conn, 'cursor') )
         
         # Test we are connected to the DB
-        dbptr = getattr(conn, '_dbptr')
+        dbptr = Dbptr(getattr(conn, '_dbptr'))
         self.assertNotEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
         conn.close() 
         self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
@@ -42,7 +42,7 @@ class ConnectionTestCase(unittest.TestCase):
         """Test for Connection context manager methods"""
 
         with connect(self.dsn) as conn:
-            dbptr = getattr(conn, '_dbptr')
+            dbptr = Dbptr(getattr(conn, '_dbptr'))
             self.assertNotEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
             
         self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
@@ -56,9 +56,9 @@ class ConnectionTestCase(unittest.TestCase):
         """Test Cursor close"""
         # Test we are connected to the DB
         curs = Connection(self.dsn).cursor()
-        dbptr = getattr(curs, '_dbptr')
+        dbptr = Dbptr(getattr(curs, '_dbptr'))
         self.assertNotEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
-        curs.close() 
+        curs.close()
         self.assertEqual( dbptr.query('dbDATABASE_COUNT'), 0 )
 
 
@@ -98,16 +98,17 @@ class CursorTestCase(unittest.TestCase):
         self.assertIsInstance( self.curs.execute, _Executer )
 
     def test_dbptr(self):
-        self.assertIsInstance( self.curs._dbptr, Dbptr )
+        self.assertIsInstance( self.curs._dbptr, list )
     
     def test_rownumber(self):
         nrecs0 = self.curs.execute('lookup', {'table':'origin'})
-        self.curs._dbptr.record = 5
+        self.curs._record = 5
         self.assertEqual(self.curs.rownumber, 5)
 
     def test_rowcount(self):
         nrecs0 = self.curs.execute('lookup', {'table':'origin'})
-        self.assertEqual(self.curs._dbptr.nrecs(), self.curs.rowcount)
+        dbptr = Dbptr(self.curs._dbptr)
+        self.assertEqual(dbptr.query('dbRECORD_COUNT'), self.curs.rowcount)
 
     def test_description(self):
         nrecs0 = self.curs.execute('process', [('dbopen origin', 'dbjoin assoc')])
@@ -193,7 +194,7 @@ class ExecuterTestCase(unittest.TestCase):
 
     def test_execute(self):
         """Test internal execute function"""
-        nrecs0 = _Executer._Executer__execute(self.curs, 'lookup', table='origin')
+        nrecs0 = _Executer(self.curs).execute('lookup', table='origin')
         self.assertEqual(nrecs0, self.NRECS_ORIGIN)
 
     def test_call(self):
