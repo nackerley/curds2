@@ -24,9 +24,7 @@ except ImportError:
     from antelope import __path__ as antpath, _datascope as ds
 finally:
     version = antpath[0].strip('/').split('/')[2]
-    print(version)
     if version == '5.4':
-        print('undepricating!!')
         undepricate(ds)
         
 STRING   = DBAPITypeObject(ds.dbSTRING)

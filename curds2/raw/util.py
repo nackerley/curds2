@@ -1,8 +1,10 @@
 #
 """
 Revert to old usage of the raw API for now...
-"""
 
+Force new version to act like old version.
+todo: force old version to act like new versions <-- harder
+"""
 class retcode_revert(object):
     """
     Decorator to fix shit.
@@ -17,6 +19,7 @@ class retcode_revert(object):
         else:
             return out
 
+
 def undepricate(module, decorator=retcode_revert):
     """
     Replace all functions in a module with decorated versions
@@ -25,5 +28,4 @@ def undepricate(module, decorator=retcode_revert):
         att = getattr(module, a)
         if hasattr(att, '__call__'):
             setattr(module, a, decorator(att))
-
 
