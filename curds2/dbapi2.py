@@ -20,10 +20,6 @@ from curds2.raw.dbapi2 import (
 from antelope.datascope import Dbptr
 
 
-def _raw(db):
-    return [db.database, db.table, db.field, db.record]
-
-
 class _Executer(BaseExecuter):
     """
     Executes commands as a function or attribute
@@ -37,6 +33,10 @@ class _Executer(BaseExecuter):
     a convenience that makes sense given the Datascope API
 
     """
+    @staticmethod
+    def _raw(db):
+        return [db.database, db.table, db.field, db.record]
+
     def execute(self, operation, *args, **kwargs):
         """
         Based on original execute function
@@ -49,7 +49,7 @@ class _Executer(BaseExecuter):
         
         # Return depends on result
         if isinstance(result, Dbptr):
-            ptr = _raw(result)
+            ptr = self._raw(result)
             if ds.dbINVALID in ptr:
                 raise DatabaseError("Invalid value in pointer: {0}".format(ptr))
             self.cursor._dbptr = ptr
@@ -58,8 +58,6 @@ class _Executer(BaseExecuter):
             return result
 
 
-# DBAPI Classes
-#----------------------------------------------------------------------------#
 class Cursor(RawCursor):
     """
     DBAPI 2.0 compatible cursor type for Datascope
