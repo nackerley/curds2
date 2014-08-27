@@ -11,7 +11,7 @@ except ImportError:
 
 from curds2.api.core import *
 from curds2.api.base import BaseConnection, BaseCursor, BaseExecuter
-from curds2.raw.util import oldversion
+from curds2.raw.util import patch_oldversion
 
 # Antelope/Datascope
 #----------------------------------------------------------------------------#
@@ -24,8 +24,8 @@ except ImportError:
     from antelope import __path__ as antpath, _datascope as ds
 finally:
     version = antpath[0].strip('/').split('/')[2]
-    if version == '5.4':
-        oldversion(ds)
+    if version != '5.4':
+        patch_oldversion(ds, methods=('_dbopen', '_dbgetv'))
         
 STRING   = DBAPITypeObject(ds.dbSTRING)
 BINARY   = DBAPITypeObject(None)
@@ -37,16 +37,27 @@ ROWID    = DBAPITypeObject(ds.dbDBPTR)
 # Utility
 #----------------------------------------------------------------------------#
 def _open(*args, **kwargs):
+    """
+    Open database
+    
+    5.4 returns (retcode, value), patch_oldversion fixes for 5.3 and below
+    """
     db = ds._dbopen(*args, **kwargs)
-    return db  # in 5.4+ db[1], oldversion patches this for now
+    return db[1]
 
 
 def _select(*args, **kwargs):
+    """
+    Get values from db
+
+    5.4 returns (retcode, value), patch_oldversion fixes for 5.3 and below
+    """
     row = ds._dbgetv(*args, **kwargs)
-    return row # in 5.4+ row[1], oldversion patches this for now
+    return row[1]
 
 
 def _query(*args, **kwargs):
+    """Query db"""
     return ds._dbquery(*args, **kwargs)  # b/c JIC
 
 
