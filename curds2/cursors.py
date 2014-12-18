@@ -3,32 +3,36 @@
 curds2.cursors
 """
 from curds2.dbapi2 import Cursor, ds
-
+from curds2.raw.dbapi2 import _select, _query
 
 class RowPointerDict(dict):
-    """Quickie class to map db fields to dict keys""" 
-    _dbptr = None
-    _tbl = None
-    _keys = None
+    """
+    Row class to map db fields to dict keys
+    """
+    __slots__ = ['_dbptr', '_tbl', '_keys']
 
     def __init__(self, db=None, keys=[]):
         self._dbptr = db
-        self._tbl = ds._dbquery(self._dbptr, ds.dbTABLE_NAME)
+        self._tbl = _query(self._dbptr, ds.dbTABLE_NAME)
         self._keys = keys
+    
+    def __contains__(self, k):
+        """
+        D.__contains__(k) -> True if D has a key k, else False
+        """
+        if k in self.keys():
+            return True
+        else:
+            return False
 
     def __getitem__(self, key):
-        out = ds._dbgetv(self._dbptr, self._tbl, key)
-        # Non-backwards compatibility strikes again.
-        if len(out) > 1:
-            return out[1][0]
-        else:
-            return out[0]
+        return _select(self._dbptr, self._tbl, key)[0]
 
     def __setitem__(self, key, value):
         ds._dbputv(self._dbptr, self._tbl, key, value)
 
     def __len__(self):
-        return ds._dbquery(self._dbptr, ds.dbRECORD_COUNT)
+        return _query(self._dbptr, ds.dbRECORD_COUNT)
 
     def update(self, dict_):
         args = []
@@ -45,6 +49,11 @@ class RowPointerDict(dict):
     def items(self):
         return [(k, self[k]) for k in self.keys()]
 
+    def get(self, k, d=None):
+        if k in self:
+            return self[k]
+        else:
+            return d
 
 class InteractiveCursor(Cursor):
     """

@@ -66,7 +66,7 @@ Binary = buffer
 Date = datetime.date
 Time = datetime.time
 Timestamp = datetime.datetime
-TimestampFromTicks = Timestamp.fromtimestamp
+TimestampFromTicks = Timestamp.utcfromtimestamp
 
 def DateFromTicks(ticks):
     return Date(TimestampFromTicks(ticks).timetuple()[:3])
