@@ -43,6 +43,8 @@ def _open(*args, **kwargs):
     5.4 returns (retcode, value), patch_oldversion fixes for 5.3 and below
     """
     db = ds._dbopen(*args, **kwargs)
+    if db[0]:
+        raise DatabaseError("Database returned error on open: {0}".format(db))
     return db[1]
 
 
@@ -53,6 +55,8 @@ def _select(*args, **kwargs):
     5.4 returns (retcode, value), patch_oldversion fixes for 5.3 and below
     """
     row = ds._dbgetv(*args, **kwargs)
+    if row[0]:
+        raise DatabaseError("Database returned error: {0}".format(row))
     return row[1]
 
 

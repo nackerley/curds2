@@ -5,6 +5,7 @@ curds2.cursors
 from curds2.dbapi2 import Cursor, ds
 from curds2.raw.dbapi2 import _select, _query
 
+
 class RowPointerDict(dict):
     """
     Row class to map db fields to dict keys
@@ -37,7 +38,8 @@ class RowPointerDict(dict):
     def update(self, dict_):
         args = []
         for i in dict_.items():
-            args.extend(i)
+            if self.__contains__(i[0]):
+                args.extend(i)
         ds._dbputv(self._dbptr, self._tbl, *args)
 
     def keys(self):
@@ -55,6 +57,7 @@ class RowPointerDict(dict):
         else:
             return d
 
+
 class InteractiveCursor(Cursor):
     """
     Cursor class that returns non-standard interactive rows which point
@@ -65,3 +68,10 @@ class InteractiveCursor(Cursor):
         row = RowPointerDict(self._dbptr, keys=k)
         self._record += 1
         return row
+
+    def append(self, row):
+        n = self.execute('addnull', [])
+        n = self.scroll(n, 'absolute')
+        newrow = self.fetchone()
+        newrow.update(row)
+        
