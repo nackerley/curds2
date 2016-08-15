@@ -24,9 +24,9 @@ except ImportError:
     from antelope import __path__ as antpath, _datascope as ds
 finally:
     version = antpath[0].strip('/').split('/')[2]
-    if version != '5.4':
+    if float(version) < 5.4:
         patch_oldversion(ds, methods=('_dbopen', '_dbgetv'))
-        
+
 STRING   = DBAPITypeObject(ds.dbSTRING)
 BINARY   = DBAPITypeObject(None)
 NUMBER   = DBAPITypeObject(ds.dbINTEGER, ds.dbREAL, ds.dbBOOLEAN, ds.dbTIME, ds.dbYEARDAY)
@@ -39,7 +39,7 @@ ROWID    = DBAPITypeObject(ds.dbDBPTR)
 def _open(*args, **kwargs):
     """
     Open database
-    
+
     5.4 returns (retcode, value), patch_oldversion fixes for 5.3 and below
     """
     db = ds._dbopen(*args, **kwargs)
@@ -68,7 +68,7 @@ def _query(*args, **kwargs):
 class _Executer(BaseExecuter):
     """
     Executes commands as a function or attribute
-    
+
     Allows method style calls to the Dbptr directly, in addition
     to the standard 'execute' method.
 
@@ -96,8 +96,8 @@ class _Executer(BaseExecuter):
         if not hasattr(ds, fxn):
             raise ProgrammingError("No such command available: " + fxn)
         proc = getattr(ds, fxn)
-        result = proc(self.cursor._dbptr, *args) 
-        
+        result = proc(self.cursor._dbptr, *args)
+
         # Return depends on result
         if isinstance(result, list) and len(result) == 4:
             if ds.dbINVALID in result:
@@ -112,7 +112,7 @@ class _Executer(BaseExecuter):
 class Cursor(BaseCursor):
     """
     DBAPI 2.0 compatible cursor type for Datascope
-    
+
     Attributes (DBAPI standard)
     ----------
     arraysize   : str of step size for 'fetch'
@@ -125,7 +125,7 @@ class Cursor(BaseCursor):
     ---------------------
     CONVERT_NULL : bool of whether to try and change Nulls to None
     row_factory  : function handle to build more complex rows
-    
+
     Methods (DBAPI standard)
     -------
     close() : Close the connection
@@ -134,7 +134,7 @@ class Cursor(BaseCursor):
     fetchone() : Get record of current pointer
     fetchmany(size=cursor.arraysize) : Get multiple records from current pointer on
     fetchall() : Get all records from current pointer to end
-    
+
     Extension methods
     -----------------
     scroll(record, mode="relative") : Move cursor pointer to a record
@@ -142,7 +142,7 @@ class Cursor(BaseCursor):
     Built-ins
     ---------
     __iter__ : Cursor is a generator which can be iterated over
-    
+
     """
     _executer = _Executer
 
@@ -150,7 +150,7 @@ class Cursor(BaseCursor):
     def _nullptr(self):
         """
         Return current pointer's NULL record
-        
+
         """
         null = self._dbptr  # dep 'copy'
         null[3] = ds.dbNULL
@@ -160,10 +160,10 @@ class Cursor(BaseCursor):
     def description(self):
         """
         Return readonly 'description' sequence per DBAPI specs
-        
+
         sequence of 7-item sequence of:
         (name, type_code, display_size, internal_size, precision, scale, null_ok)
-        
+
         Notes
         -----
         Will return a namedtuple if available
@@ -187,7 +187,7 @@ class Cursor(BaseCursor):
             precision     = _query(dbptr, ds.dbFIELD_FORMAT)
             scale         = None
             null_ok       = name not in _query(dbptr, ds.dbPRIMARY_KEY)
-            
+
             dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
             description.append(dtup)
         return description
@@ -202,18 +202,18 @@ class Cursor(BaseCursor):
     def __init__(self, dbptr, **kwargs):
         """
         Make a Cursor from a Dbptr
-        
+
         Inputs
         ------
         dbptr    : antelope.datascope.Dbptr
         **kwargs : keyword args, where
             -> if a cursor attribute, set attribute value
-        
+
         """
         super(Cursor, self).__init__(**kwargs)
 
         self._dbptr = dbptr  # dep 'copy'
-        
+
         # Attributes
         for k, v in kwargs.items():
             if hasattr(self, k):
@@ -223,7 +223,7 @@ class Cursor(BaseCursor):
         """Generator, yields a row from 0 to rowcount"""
         for self._record in xrange(self.rowcount):
             yield self._fetch()
-    
+
     @staticmethod
     def _convert_dt(value, type_code):
         if type_code == DATETIME and value is not None and isinstance(value, float):
@@ -236,7 +236,7 @@ class Cursor(BaseCursor):
         desc = self.description
         fields = [d[0] for d in desc]
         row = _select(self._dbptr, tbl, *fields)
-        if self.CONVERT_NULL:    
+        if self.CONVERT_NULL:
             row = [self._convert_null(row[n], null) for n, null in enumerate(_select(self._nullptr, tbl, *fields))]
         if self.CONVERT_DATETIME:
             row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
@@ -246,12 +246,12 @@ class Cursor(BaseCursor):
     def close(self):
         """Close database connection"""
         ds._dbclose(self._dbptr)
-         
+
 
 class Connection(BaseConnection):
     """
     DBAPI compatible Connection type for Datascope
-    
+
     """
     cursor_factory = Cursor
 
@@ -261,19 +261,19 @@ class Connection(BaseConnection):
     @_dbptr.setter
     def _dbptr(self, value):
         self._database = value[0]
-    
+
     def __init__(self, database, perm='r', schema='css3.0', **kwargs):
         """
         Open a connection to a Datascope database
 
         Pass python None to open a db in memory.
-        
+
         Inputs
         ------
         database : str name (':memory:')
         perm     : str of permissions
         schema   : str of temp schema
-    
+
         """
         if database == ":memory:":
             self._dbptr = ds._dbtmp(schema)
@@ -282,28 +282,28 @@ class Connection(BaseConnection):
         for k in kwargs.keys():
             if hasattr(self, k):
                 self.__setattr__(k, kwargs.pop(k))
-        
+
     def close(self):
         ds._dbclose(self._dbptr)
 
     def is_open(self):
         return _query(self._dbptr, ds.dbDATABASE_COUNT) != 0
-    
+
     def cursor(self, **kwargs):
         """
         Construct a Cursor object from Connection pointer
         """
         return self.cursor_factory(self._dbptr, connection=self, **kwargs)
-    
+
 
 def connect(dsn=':memory:', perm='r', **kwargs):
     """
     Return a Connection object to a Datascope database
-    
+
     Inputs
     ------
     dsn  : str of name of database (':memory:')
     perm : str of permission - passed to Datascope API ('r')
-        
+
     """
     return Connection(dsn, perm=perm, **kwargs)
