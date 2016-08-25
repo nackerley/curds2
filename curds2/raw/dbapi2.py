@@ -9,33 +9,35 @@ try:
 except ImportError:
     pass
 
-from curds2.api.core import *
+from curds2.api.core import ProgrammingError, DatabaseError, \
+                            TimestampFromTicks, DBAPITypeObject
 from curds2.api.base import BaseConnection, BaseCursor, BaseExecuter
 from curds2.raw.util import patch_oldversion
 
 # Antelope/Datascope
-#----------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------#
 try:
     from antelope import __path__ as antpath, _datascope as ds
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.join(os.environ['ANTELOPE'],'data','python'))
+    sys.path.append(os.path.join(os.environ['ANTELOPE'], 'data', 'python'))
     from antelope import __path__ as antpath, _datascope as ds
 finally:
     version = antpath[0].strip('/').split('/')[2]
     if float(version) < 5.4:
         patch_oldversion(ds, methods=('_dbopen', '_dbgetv'))
 
-STRING   = DBAPITypeObject(ds.dbSTRING)
-BINARY   = DBAPITypeObject(None)
-NUMBER   = DBAPITypeObject(ds.dbINTEGER, ds.dbREAL, ds.dbBOOLEAN, ds.dbTIME, ds.dbYEARDAY)
+STRING = DBAPITypeObject(ds.dbSTRING)
+BINARY = DBAPITypeObject(None)
+NUMBER = DBAPITypeObject(ds.dbINTEGER, ds.dbREAL, ds.dbBOOLEAN, ds.dbTIME,
+                         ds.dbYEARDAY)
 DATETIME = DBAPITypeObject(ds.dbTIME, ds.dbYEARDAY)
-ROWID    = DBAPITypeObject(ds.dbDBPTR)
+ROWID = DBAPITypeObject(ds.dbDBPTR)
 
 
 # Utility
-#----------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------#
 def _open(*args, **kwargs):
     """
     Open database
@@ -85,7 +87,6 @@ class _Executer(BaseExecuter):
             return value._dbptr
         return value
 
-
     def execute(self, operation, *args):
         """
         Based on original execute function
@@ -101,14 +102,17 @@ class _Executer(BaseExecuter):
         # Return depends on result
         if isinstance(result, list) and len(result) == 4:
             if ds.dbINVALID in result:
-                raise DatabaseError("Invalid value in pointer: {0}".format(result))
+                raise DatabaseError(
+                    "Invalid value in pointer: {0}".format(result))
             self.cursor._dbptr = result
             return self.cursor.rowcount
         else:
             return result
 
 # DBAPI Classes
-#----------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------
+
+
 class Cursor(BaseCursor):
     """
     DBAPI 2.0 compatible cursor type for Datascope
@@ -128,12 +132,12 @@ class Cursor(BaseCursor):
 
     Methods (DBAPI standard)
     -------
-    close() : Close the connection
-    execute(operation, params=[]) : Call Dbptr method
-    executemany(operation, param_seq=[]) : Execute same operation multiple times
-    fetchone() : Get record of current pointer
-    fetchmany(size=cursor.arraysize) : Get multiple records from current pointer on
-    fetchall() : Get all records from current pointer to end
+    close(): Close the connection
+    execute(operation, params=[]): Call Dbptr method
+    executemany(operation, param_seq=[]): Execute same operation multiple times
+    fetchone(): Get record of current pointer
+    fetchmany(size=cursor.arraysize): Get multiple from current pointer on
+    fetchall(): Get all records from current pointer to end
 
     Extension methods
     -----------------
@@ -161,8 +165,8 @@ class Cursor(BaseCursor):
         """
         Return readonly 'description' sequence per DBAPI specs
 
-        sequence of 7-item sequence of:
-        (name, type_code, display_size, internal_size, precision, scale, null_ok)
+        sequence of 7-item sequence of: (name, type_code, display_size,
+        internal_size, precision, scale, null_ok)
 
         Notes
         -----
@@ -172,7 +176,10 @@ class Cursor(BaseCursor):
         if self._table == ds.dbALL or ds.dbINVALID in self._dbptr:
             return None
         if 'collections' in globals() and hasattr(collections, 'namedtuple'):
-            Tuple = collections.namedtuple('Column', ('name','type_code','display_size','internal_size','precision','scale','null_ok'))
+            Tuple = collections.namedtuple('Column',
+                                           ('name', 'type_code',
+                                            'display_size', 'internal_size',
+                                            'precision', 'scale', 'null_ok'))
         else:
             Tuple = tuple
         dbptr = self._nullptr
@@ -181,14 +188,15 @@ class Cursor(BaseCursor):
         for dbptr[2], name in enumerate(table_fields):
             if name in table_fields[:dbptr[2]]:
                 name = '.'.join([_query(dbptr, ds.dbFIELD_BASE_TABLE), name])
-            type_code     = _query(dbptr, ds.dbFIELD_TYPE)
-            display_size  = _query(dbptr, ds.dbFORMAT)
+            type_code = _query(dbptr, ds.dbFIELD_TYPE)
+            display_size = _query(dbptr, ds.dbFORMAT)
             internal_size = _query(dbptr, ds.dbFIELD_SIZE)
-            precision     = _query(dbptr, ds.dbFIELD_FORMAT)
-            scale         = None
-            null_ok       = name not in _query(dbptr, ds.dbPRIMARY_KEY)
+            precision = _query(dbptr, ds.dbFIELD_FORMAT)
+            scale = None
+            null_ok = name not in _query(dbptr, ds.dbPRIMARY_KEY)
 
-            dtup = Tuple(name, type_code, display_size, internal_size, precision, scale, null_ok)
+            dtup = Tuple(name, type_code, display_size, internal_size,
+                         precision, scale, null_ok)
             description.append(dtup)
         return description
 
@@ -226,7 +234,8 @@ class Cursor(BaseCursor):
 
     @staticmethod
     def _convert_dt(value, type_code):
-        if type_code == DATETIME and value is not None and isinstance(value, float):
+        if type_code == DATETIME and value is not None \
+                and isinstance(value, float):
             return TimestampFromTicks(value)
         return value
 
@@ -237,7 +246,9 @@ class Cursor(BaseCursor):
         fields = [d[0] for d in desc]
         row = _select(self._dbptr, tbl, *fields)
         if self.CONVERT_NULL:
-            row = [self._convert_null(row[n], null) for n, null in enumerate(_select(self._nullptr, tbl, *fields))]
+            row = [self._convert_null(row[n], null)
+                   for n, null in enumerate(_select(self._nullptr,
+                                                    tbl, *fields))]
         if self.CONVERT_DATETIME:
             row = [self._convert_dt(row[n], d[1]) for n, d in enumerate(desc)]
         self._record += 1
@@ -258,6 +269,7 @@ class Connection(BaseConnection):
     @property
     def _dbptr(self):
         return [self._database, ds.dbALL, ds.dbALL, ds.dbALL]
+
     @_dbptr.setter
     def _dbptr(self, value):
         self._database = value[0]
